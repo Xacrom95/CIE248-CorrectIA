@@ -70,6 +70,12 @@ Règles obligatoires :
 - Recommande une vérification humaine uniquement lorsqu'une réponse, une question ou un barème est réellement ambigu.
 - La correction produite est une proposition et doit toujours être validée par un enseignant.
 - Retourne uniquement un objet JSON valide, sans texte avant ou après.
+- Le champ intitule doit contenir la question exacte extraite du corrigé.
+- Le champ reponse_eleve doit contenir la réponse exacte extraite de la copie.
+- Ne reformule pas et ne corrige pas la réponse de l'élève dans le champ reponse_eleve.
+- Si aucune réponse n'est présente, utilise une chaîne vide pour reponse_eleve.
+- Les éléments corrects doivent uniquement contenir les informations réellement présentes dans la réponse de l'élève.
+- Les éléments manquants doivent uniquement contenir les informations attendues dans le corrigé mais absentes de la réponse.
 
 CORRIGÉ COMPLET :
 
@@ -79,20 +85,21 @@ COPIE DE L'ÉLÈVE :
 
 {copie_eleve}
 
-Structure JSON obligatoire :
+SStructure JSON obligatoire :
 
 {{
   "questions": [
     {{
       "numero": 1,
-      "intitule": "Intitulé de la question",
+      "intitule": "Intitulé exact de la question",
+      "reponse_eleve": "Réponse exacte donnée par l'élève",
       "note_proposee": 0,
       "note_maximale": 0,
       "elements_corrects": [
-        "Liste des éléments présents dans la réponse de l'élève et considérés comme corrects."
+        "Élément correct présent dans la réponse"
       ],
       "elements_manquants_ou_incorrects": [
-        "Élément manquant ou incorrect"
+        "Élément attendu absent ou réellement incorrect"
       ],
       "commentaire": "Commentaire court et factuel",
       "verification_humaine_recommandee": false
@@ -100,7 +107,7 @@ Structure JSON obligatoire :
   ],
   "note_totale_proposee": 0,
   "note_totale_maximale": 0,
-  "commentaire_global": "Commentaire général court et factuel",
+  "commentaire_global": "Commentaire global court et factuel",
   "verification_humaine_recommandee": false
 }}
 """
