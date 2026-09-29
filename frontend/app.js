@@ -6,6 +6,8 @@ const champCopie = document.getElementById("copie");
 const nomCorrige = document.getElementById("nom-corrige");
 const nomCopie = document.getElementById("nom-copie");
 const boutonCorriger = document.getElementById("bouton-corriger");
+const boutonAnnuler = document.getElementById("bouton-annuler");
+const boutonTheme = document.getElementById("bouton-theme");
 const boutonNouvelleCorrection = document.getElementById("bouton-nouvelle-correction");
 const zoneChargement = document.getElementById("chargement");
 const tempsEcoule = document.getElementById("temps-ecoule");
@@ -15,10 +17,25 @@ const contenuResultat = document.getElementById("contenu-resultat");
 
 let intervalleTemps = null;
 let debutCorrection = null;
+let controleurCorrection = null;
+
+function appliquerTheme(theme) {
+    const nocturne = theme === "dark";
+    document.documentElement.dataset.theme = nocturne ? "dark" : "light";
+    boutonTheme.textContent = nocturne ? "Mode diurne" : "Mode nocturne";
+    boutonTheme.setAttribute("aria-label", nocturne ? "Activer le mode diurne" : "Activer le mode nocturne");
+    localStorage.setItem("correctia-theme", nocturne ? "dark" : "light");
+}
+
+appliquerTheme(localStorage.getItem("correctia-theme") || "light");
 
 champCorrige.addEventListener("change", () => afficherNomFichier(champCorrige, nomCorrige));
 champCopie.addEventListener("change", () => afficherNomFichier(champCopie, nomCopie));
 boutonCorriger.addEventListener("click", corrigerCopie);
+boutonAnnuler.addEventListener("click", () => controleurCorrection?.abort());
+boutonTheme.addEventListener("click", () => {
+    appliquerTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+});
 boutonNouvelleCorrection.addEventListener("click", reinitialiserInterface);
 
 function afficherNomFichier(champ, zoneNom) {
@@ -66,6 +83,7 @@ async function corrigerCopie() {
         verifierFichier(fichierCopie, "une copie d’élève");
 
         activerChargement();
+        controleurCorrection = new AbortController();
 
         const [corrige, copieEleve] = await Promise.all([
             lireFichierTexte(fichierCorrige),
@@ -74,6 +92,7 @@ async function corrigerCopie() {
 
         const reponse = await fetch(API_URL, {
             method: "POST",
+            signal: controleurCorrection.signal,
             headers: {
                 "Content-Type": "application/json"
             },
@@ -102,6 +121,11 @@ async function corrigerCopie() {
         afficherCorrection(donnees);
     } catch (erreur) {
         console.error(erreur);
+
+        if (erreur.name === "AbortError") {
+            afficherErreur("Correction annulée.");
+            return;
+        }
 
         const message = erreur instanceof TypeError
             ? "Impossible de joindre FastAPI. Vérifiez que Uvicorn fonctionne et que CORS est configuré."
@@ -135,6 +159,7 @@ function desactiverChargement() {
     champCopie.disabled = false;
     boutonCorriger.textContent = "Corriger la copie";
     zoneChargement.classList.add("cache");
+    controleurCorrection = null;
 
     if (intervalleTemps !== null) {
         clearInterval(intervalleTemps);
