@@ -319,16 +319,18 @@ def valider_question(
     """
 
     champs_obligatoires = {
-    "numero",
-    "intitule",
-    "reponse_eleve",
-    "note_proposee",
-    "note_maximale",
-    "elements_corrects",
-    "elements_manquants_ou_incorrects",
-    "commentaire",
-    "verification_humaine_recommandee"
-}
+        "numero",
+        "intitule",
+        "reponse_eleve",
+        "reponse_attendue",
+        "note_proposee",
+        "note_maximale",
+        "elements_corrects",
+        "elements_manquants_ou_incorrects",
+        "analyse_detaillee",
+        "commentaire",
+        "verification_humaine_recommandee"
+    }
     champs_manquants = (
         champs_obligatoires - question.keys()
     )
@@ -339,24 +341,27 @@ def valider_question(
             f"{sorted(champs_manquants)}"
         )
 
-    if not isinstance(
-    question["intitule"],
-    str
-):
-    raise ValueError(
-        f"L'intitulé de la question {index} "
-        "doit être une chaîne de caractères."
+    note_proposee = convertir_en_nombre(
+        question["note_proposee"],
+        f"note_proposee de la question {index}"
     )
 
-    if not isinstance(
-    question["reponse_eleve"],
-    str
-):
-    raise ValueError(
-        f"La réponse de l'élève pour la question {index} "
-        "doit être une chaîne de caractères."
+    note_maximale = convertir_en_nombre(
+        question["note_maximale"],
+        f"note_maximale de la question {index}"
     )
-    
+
+    for champ in (
+        "intitule",
+        "reponse_eleve",
+        "reponse_attendue",
+        "analyse_detaillee"
+    ):
+        if not isinstance(question[champ], str):
+            raise ValueError(
+                f"{champ} de la question {index} doit être une chaîne."
+            )
+
     if note_maximale <= 0:
         raise ValueError(
             f"Le barème de la question {index} "
@@ -439,6 +444,13 @@ def valider_correction(
             "dans le corrigé."
         )
 
+    if nombre_questions_attendu and len(questions) != nombre_questions_attendu:
+        raise ValueError(
+            "Le modèle n'a pas traité toutes les questions : "
+            f"{len(questions)} reçue(s), "
+            f"{nombre_questions_attendu} attendue(s)."
+        )
+
     total_recalcule = 0.0
     maximum_recalcule = 0.0
 
@@ -459,32 +471,6 @@ def valider_correction(
 
         total_recalcule += note
         maximum_recalcule += maximum
-
-    total_modele = convertir_en_nombre(
-        correction["note_totale_proposee"],
-        "note_totale_proposee"
-    )
-
-    maximum_modele = convertir_en_nombre(
-        correction["note_totale_maximale"],
-        "note_totale_maximale"
-    )
-
-    tolerance = 0.01
-
-    if abs(total_modele - total_recalcule) > tolerance:
-        raise ValueError(
-            "Le total calculé par le modèle est incohérent : "
-            f"{total_modele}, alors que la somme des questions "
-            f"donne {total_recalcule}."
-        )
-
-    if abs(maximum_modele - maximum_recalcule) > tolerance:
-        raise ValueError(
-            "Le barème total calculé par le modèle est incohérent : "
-            f"{maximum_modele}, alors que la somme des barèmes "
-            f"donne {maximum_recalcule}."
-        )
 
     if not isinstance(
         correction["verification_humaine_recommandee"],
