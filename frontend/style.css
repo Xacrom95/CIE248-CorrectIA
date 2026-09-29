@@ -29,6 +29,28 @@ header {
     text-align: center;
 }
 
+.entete-ligne {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.bouton-theme,
+.bouton-annuler {
+    margin-top: 0;
+    padding: 9px 13px;
+    border: 1px solid #b8c4d4;
+    border-radius: 8px;
+    background: transparent;
+    color: #334155;
+    font-size: 14px;
+}
+
+.bouton-annuler {
+    margin-top: 10px;
+}
+
 h1 {
     margin: 0 0 8px;
     color: #1d4ed8;
@@ -274,7 +296,67 @@ button:disabled {
     margin: 0;
 }
 
+html[data-theme="dark"] body {
+    background: #0b1120;
+    color: #e5edf7;
+}
+
+html[data-theme="dark"] header,
+html[data-theme="dark"] .formulaire,
+html[data-theme="dark"] .resultat {
+    border-color: #26354d;
+    background: #111b2e;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+}
+
+html[data-theme="dark"] h1 {
+    color: #7dd3fc;
+}
+
+html[data-theme="dark"] header p,
+html[data-theme="dark"] .aide,
+html[data-theme="dark"] .nom-fichier {
+    color: #9fb0c7;
+}
+
+html[data-theme="dark"] .bouton-theme,
+html[data-theme="dark"] .bouton-annuler {
+    border-color: #405474;
+    color: #dbeafe;
+}
+
+html[data-theme="dark"] input[type="file"] {
+    border-color: #405474;
+    background: #0f1a2d;
+    color: #dbeafe;
+}
+
+html[data-theme="dark"] .chargement {
+    border-color: #1e4b70;
+    background: #102a43;
+    color: #bae6fd;
+}
+
+html[data-theme="dark"] .reponse-originale {
+    border-color: #334766;
+    background: #111b2e;
+}
+
+html[data-theme="dark"] .question-resultat {
+    border-color: #26354d;
+    background: #0f1a2d;
+}
+
+html[data-theme="dark"] .commentaire-question {
+    background: #1a2639;
+}
+
 @media (max-width: 700px) {
+    .entete-ligne {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
     .details-correction {
         grid-template-columns: 1fr;
     }
