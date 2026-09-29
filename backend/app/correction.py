@@ -48,8 +48,6 @@ Règles obligatoires :
 - Les synonymes et reformulations sont acceptés.
 - La note zéro ne doit être attribuée que lorsque la réponse est absente, totalement fausse ou sans rapport avec la question.
 - Une réponse correcte mais incomplète doit recevoir une note intermédiaire.
-- Si le commentaire indique qu'une réponse est incomplète, le champ elements_manquants_ou_incorrects doit obligatoirement préciser les éléments attendus qui ne figurent pas dans la réponse de l'élève.
-- Si elements_manquants_ou_incorrects est vide, la réponse ne doit pas être qualifiée d'incomplète dans le commentaire
 - Respecte strictement le barème de chaque question.
 - Ne sanctionne pas les fautes d'orthographe si elles ne changent pas le sens.
 - Une question sans réponse doit recevoir zéro point.
