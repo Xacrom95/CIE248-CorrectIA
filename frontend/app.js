@@ -173,34 +173,71 @@ function afficherCorrection(correction) {
         : [];
 
     const htmlQuestions = questions.map((question) => `
-        <article class="question-resultat">
+    <article class="question-resultat">
+        <div class="question-originale">
             <h3>
-                Question ${echapperHtml(question.numero)} :
-                ${echapperHtml(question.intitule)}
+                Question ${echapperHtml(question.numero)}
             </h3>
 
-            <p>
-                <strong>Note proposée :</strong>
-                ${echapperHtml(question.note_proposee)} /
-                ${echapperHtml(question.note_maximale)}
+            <p class="intitule-question">
+                ${echapperHtml(question.intitule)}
             </p>
+        </div>
 
-            <h4>Éléments corrects</h4>
-            ${creerListe(question.elements_corrects)}
-
-            <h4>Éléments manquants ou incorrects</h4>
-            ${creerListe(question.elements_manquants_ou_incorrects)}
+        <div class="reponse-originale">
+            <h4>Réponse de l'élève</h4>
 
             <p>
-                <strong>Commentaire :</strong>
+                ${
+                    question.reponse_eleve &&
+                    question.reponse_eleve.trim()
+                        ? echapperHtml(question.reponse_eleve)
+                        : "<em>Aucune réponse fournie.</em>"
+                }
+            </p>
+        </div>
+
+        <p class="note-question">
+            <strong>Note proposée :</strong>
+            ${echapperHtml(question.note_proposee)} /
+            ${echapperHtml(question.note_maximale)}
+        </p>
+
+        <div class="details-correction">
+            <div class="bloc-correct">
+                <h4>Éléments corrects</h4>
+                ${creerListe(question.elements_corrects)}
+            </div>
+
+            <div class="bloc-manquant">
+                <h4>Éléments manquants ou incorrects</h4>
+
+                ${creerListe(
+                    question.elements_manquants_ou_incorrects
+                )}
+            </div>
+        </div>
+
+        <div class="commentaire-question">
+            <h4>Commentaire</h4>
+
+            <p>
                 ${echapperHtml(question.commentaire)}
             </p>
+        </div>
 
-            ${question.verification_humaine_recommandee
-                ? '<p class="avertissement">Vérification humaine recommandée pour cette question.</p>'
-                : ''}
-        </article>
-    `).join("");
+        ${
+            question.verification_humaine_recommandee
+                ? `
+                    <p class="avertissement">
+                        Vérification humaine recommandée
+                        pour cette question.
+                    </p>
+                `
+                : ""
+        }
+    </article>
+`).join("");
 
     const verificationGlobale = correction.verification_humaine_recommandee
         ? '<p class="avertissement">Une vérification humaine particulière est recommandée.</p>'
