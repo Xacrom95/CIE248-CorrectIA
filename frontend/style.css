@@ -39,34 +39,46 @@ header p {
     color: #526176;
 }
 
+.champ-fichier {
+    margin-bottom: 24px;
+}
+
 label {
     display: block;
-    margin: 18px 0 8px;
+    margin-bottom: 5px;
+    font-size: 18px;
     font-weight: 700;
 }
 
-label:first-child {
-    margin-top: 0;
+.aide,
+.nom-fichier {
+    margin: 5px 0;
+    color: #64748b;
+    font-size: 14px;
 }
 
-textarea {
+.nom-fichier {
+    font-weight: 700;
+}
+
+input[type="file"] {
     width: 100%;
-    min-height: 190px;
+    margin-top: 8px;
     padding: 14px;
-    resize: vertical;
-    border: 1px solid #b8c4d4;
-    border-radius: 8px;
+    border: 2px dashed #b8c4d4;
+    border-radius: 10px;
+    background: #f8fafc;
     font: inherit;
-    line-height: 1.45;
+    cursor: pointer;
 }
 
-textarea:focus {
+input[type="file"]:focus {
     border-color: #2563eb;
     outline: 3px solid #dbeafe;
 }
 
 button {
-    margin-top: 20px;
+    margin-top: 4px;
     padding: 12px 22px;
     border: 0;
     border-radius: 8px;
@@ -84,6 +96,15 @@ button:hover:not(:disabled) {
 button:disabled {
     background: #94a3b8;
     cursor: wait;
+}
+
+.bouton-secondaire {
+    margin-top: 18px;
+    background: #475569;
+}
+
+.bouton-secondaire:hover:not(:disabled) {
+    background: #334155;
 }
 
 .cache {
