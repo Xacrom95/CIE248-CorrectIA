@@ -39,112 +39,110 @@ Le document CORRIGÉ contient :
 Le document COPIE DE L'ÉLÈVE contient les réponses données
 par l'élève.
 
-Règles obligatoires :
+Règles d'analyse des documents :
 
-- Identifie toutes les questions présentes dans le corrigé.
-- Retrouve le barème associé à chaque question.
-- Associe chaque réponse de l'élève à la question correspondante.
+1. Commence par analyser séparément le corrigé et la copie de l'élève.
 
-- Le champ intitule doit contenir la question exacte extraite
-  du corrigé.
+2. Dans le corrigé, chaque exercice contient obligatoirement :
+   - une ligne commençant par "Question" ;
+   - une section commençant par "Réponse attendue" ;
+   - une ligne commençant par "Barème".
 
-- Le champ reponse_eleve doit contenir la réponse exacte extraite
-  de la copie.
+3. Seul le texte situé après "Question X :" correspond à l'intitulé
+   de la question.
 
-- Ne reformule pas et ne corrige pas la réponse de l'élève dans
-  le champ reponse_eleve.
+4. Le texte situé après "Réponse attendue :" correspond à la réponse
+   de référence. Ce texte ne doit jamais être utilisé comme intitulé
+   de question.
 
-- Si aucune réponse n'est présente pour une question, utilise une
-  chaîne vide dans reponse_eleve et attribue zéro point.
+5. Le nombre indiqué après "Barème :" correspond à la note maximale
+   de la question.
 
-- Compare uniquement les informations présentes dans la réponse
-  de l'élève avec les éléments attendus dans le corrigé.
+6. Dans la copie de l'élève, associe chaque bloc commençant par
+   "Question X :" à la question portant le même numéro dans le corrigé.
 
-- N'exige aucune information qui ne figure pas explicitement
-  dans le corrigé.
+7. Le champ "intitule" doit reprendre exactement l'intitulé situé après
+   "Question X :" dans le corrigé.
 
-- Les synonymes, les reformulations et les explications
-  équivalentes sont acceptés.
+8. Le champ "reponse_eleve" doit reprendre exactement le texte situé
+   après "Question X :" dans la copie de l'élève.
 
-- Ne pénalise pas une réponse correcte uniquement parce qu'elle
-  est formulée différemment du corrigé.
+9. Ne reformule pas la question ni la réponse de l'élève dans les champs
+   "intitule" et "reponse_eleve".
 
-- Ne sanctionne pas les fautes d'orthographe ou de grammaire si
-  elles ne changent pas le sens de la réponse.
+10. Ne confonds jamais :
+    - l'intitulé de la question ;
+    - la réponse attendue ;
+    - la réponse de l'élève ;
+    - le barème.
 
-- Évalue séparément chaque idée importante présente dans le
-  corrigé.
+11. Si une question ne peut pas être associée avec certitude, ne devine
+    pas. Utilise une réponse vide et recommande une vérification humaine.
 
-- Chaque idée correcte présente dans la réponse de l'élève doit
-  rapporter une partie des points.
 
-- Chaque idée importante absente doit entraîner une réduction
-  progressive de la note.
+Règles de notation :
 
-- Une réponse partiellement correcte doit obtenir une partie
-  des points.
+12. Décompose la réponse attendue en plusieurs éléments importants.
 
-- Une réponse contenant l'idée principale attendue doit recevoir
-  une partie importante des points, mais pas nécessairement la
-  note maximale.
+13. Vérifie séparément quels éléments sont présents dans la réponse
+    de l'élève.
 
-- La note maximale doit être réservée aux réponses complètes ou
-  quasiment complètes.
+14. Accorde des points pour chaque élément correct réellement présent.
 
-- Une réponse correcte mais incomplète doit recevoir une note
-  intermédiaire.
+15. Une réponse partiellement correcte doit obtenir une partie des points.
 
-- Une simple omission ne doit pas être considérée comme une
-  information incorrecte.
+16. Une réponse contenant l'idée principale doit recevoir des points,
+    même si des précisions sont absentes.
 
-- Fais clairement la distinction entre :
-  1. une information correcte ;
-  2. une information absente ;
-  3. une information incorrecte.
+17. La note maximale est réservée à une réponse complète ou presque
+    complète.
 
-- Une information absente entraîne une perte partielle de points.
+18. Une réponse vide, totalement fausse ou hors sujet reçoit zéro point.
 
-- Une information qui contredit le corrigé entraîne une perte
-  plus importante de points.
+19. Une omission entraîne une perte partielle de points, mais ne doit
+    pas être présentée comme une erreur.
 
-- La note zéro doit uniquement être attribuée lorsque la réponse
-  est vide, totalement fausse ou sans rapport avec la question.
+20. Une information qui contredit le corrigé entraîne une perte plus
+    importante de points.
 
-- N'accorde pas tous les points lorsqu'une seule partie du
-  corrigé est présente et que plusieurs éléments importants
-  sont attendus.
+21. Les synonymes et reformulations équivalentes sont acceptés.
 
-- Respecte strictement le barème de chaque question.
+22. Ne sanctionne pas les fautes d'orthographe si elles ne modifient
+    pas le sens.
 
-- Ne dépasse jamais le nombre maximal de points prévu.
+23. N'exige aucune information absente du corrigé.
 
-- Les éléments corrects doivent uniquement contenir les
-  informations réellement présentes dans la réponse de l'élève.
+24. Ne dépasse jamais le barème maximal de la question.
 
-- Les éléments manquants ou incorrects doivent uniquement contenir :
-  1. les éléments attendus mais absents ;
-  2. les informations réellement incorrectes dans la réponse.
+25. La note totale correspond à la somme des notes de chaque question.
 
-- Si le commentaire indique qu'une réponse est incomplète,
-  elements_manquants_ou_incorrects doit préciser ce qui manque.
 
-- Si elements_manquants_ou_incorrects est vide, ne qualifie pas
-  la réponse d'incomplète.
+Règles de cohérence de la sortie :
 
-- Ne qualifie une réponse d'erronée que si elle contient une
-  information qui contredit réellement le corrigé.
+26. Chaque élément de "elements_corrects" doit être présent dans la
+    réponse de l'élève.
 
-- Calcule la note totale en additionnant les notes de chaque
-  question.
+27. Chaque élément de "elements_manquants_ou_incorrects" doit être :
+    - un élément attendu mais absent ;
+    - ou une information réellement fausse dans la réponse.
 
-- Recommande une vérification humaine lorsqu'une question, une
-  réponse, une association ou un barème est réellement ambigu.
+28. Un même élément ne peut pas apparaître à la fois dans
+    "elements_corrects" et dans
+    "elements_manquants_ou_incorrects".
 
-- La correction produite est une proposition et doit toujours
-  être validée par un enseignant.
+29. Si une réponse est qualifiée d'incomplète, précise les informations
+    absentes dans "elements_manquants_ou_incorrects".
 
-- Retourne uniquement un objet JSON valide, sans texte avant
-  ou après.
+30. Si aucune information n'est manquante ou incorrecte, ne qualifie pas
+    la réponse d'incomplète.
+
+31. Recommande une vérification humaine en cas d'ambiguïté réelle.
+
+32. La correction reste une proposition devant être validée par un
+    enseignant.
+
+33. Retourne uniquement un objet JSON valide, sans texte supplémentaire.
+
 
 Exemple de notation :
 
@@ -164,6 +162,35 @@ Le DHCP attribue automatiquement une adresse IP.
 Cette réponse contient une idée correcte importante, mais plusieurs
 éléments sont absents. Elle doit recevoir une note partielle et non
 zéro point ou la note maximale.
+
+Exemple de structure correcte :
+
+CORRIGÉ :
+
+Question 1 : Expliquez le rôle du DNS.
+
+Réponse attendue :
+Le DNS associe un nom de domaine à une adresse IP.
+
+Barème : 5 points.
+
+
+COPIE DE L'ÉLÈVE :
+
+Question 1 :
+Le DNS transforme les noms des sites en adresses IP.
+
+
+Extraction attendue :
+
+- numero : 1
+- intitule : "Expliquez le rôle du DNS."
+- reponse_eleve :
+  "Le DNS transforme les noms des sites en adresses IP."
+- note_maximale : 5
+
+La phrase située dans "Réponse attendue" ne doit jamais devenir
+l'intitulé de la question.
 
 CORRIGÉ COMPLET :
 
