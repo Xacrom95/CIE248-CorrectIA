@@ -143,6 +143,16 @@ Règles de cohérence de la sortie :
 
 33. Retourne uniquement un objet JSON valide, sans texte supplémentaire.
 
+34.  Un même concept ne doit pas apparaître à la fois dans
+  elements_corrects et dans elements_manquants_ou_incorrects,
+  même s'il est formulé différemment.
+
+35.  Avant de signaler un élément manquant, vérifie si l'élève a déjà
+  exprimé ce concept avec des synonymes ou une reformulation.
+
+36. Si l'idée principale est correctement exprimée, ne la considère
+  pas comme manquante. Signale uniquement les précisions réellement
+  absentes.
 
 Exemple de notation :
 
