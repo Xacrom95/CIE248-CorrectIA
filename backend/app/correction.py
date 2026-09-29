@@ -46,7 +46,9 @@ Règles obligatoires :
 - Évalue les réponses comme un enseignant bienveillant et réaliste.
 - Accorde des points dès qu'une partie de la réponse est correcte.
 - Une réponse partiellement correcte doit obtenir une partie des points.
-- Une réponse qui contient l'idée principale attendue doit recevoir la majorité des points même si certains détails sont absents.
+- Une réponse qui contient l'idée principale attendue doit recevoir une partie importante des points.Cependant, chaque élément important du corrigé qui est absent doit entraîner une réduction progressive de la note.
+- Une réponse partielle ne doit généralement pas recevoir la note maximale.
+- La note maximale doit être réservée aux réponses complètes ou quasiment complètes.
 - Une réponse correcte mais incomplète doit recevoir une note intermédiaire.
 - N'utilise la note zéro que si la réponse est vide, totalement fausse ou hors sujet.
 - Ne sanctionne pas une simple omission aussi sévèrement qu'une erreur.
