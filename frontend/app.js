@@ -6,6 +6,7 @@ const champCopie = document.getElementById("copie");
 const nomCorrige = document.getElementById("nom-corrige");
 const nomCopie = document.getElementById("nom-copie");
 const boutonCorriger = document.getElementById("bouton-corriger");
+const boutonAnnuler = document.getElementById("bouton-annuler");
 const boutonTheme = document.getElementById("bouton-theme");
 const boutonNouvelleCorrection = document.getElementById("bouton-nouvelle-correction");
 const zoneChargement = document.getElementById("chargement");
@@ -16,6 +17,7 @@ const contenuResultat = document.getElementById("contenu-resultat");
 
 let intervalleTemps = null;
 let debutCorrection = null;
+let controleurCorrection = null;
 
 function appliquerTheme(theme) {
     const nocturne = theme === "dark";
@@ -36,7 +38,14 @@ boutonTheme.addEventListener("click", () => {
 champCorrige.addEventListener("change", () => afficherNomFichier(champCorrige, nomCorrige));
 champCopie.addEventListener("change", () => afficherNomFichier(champCopie, nomCopie));
 boutonCorriger.addEventListener("click", corrigerCopie);
+boutonAnnuler.addEventListener("click", annulerCorrection);
 boutonNouvelleCorrection.addEventListener("click", reinitialiserInterface);
+
+function annulerCorrection() {
+    if (controleurCorrection) {
+        controleurCorrection.abort();
+    }
+}
 
 function afficherNomFichier(champ, zoneNom) {
     const fichier = champ.files[0];
@@ -71,6 +80,12 @@ async function lireFichierTexte(fichier) {
     return contenu;
 }
 
+function extraireNomEleve(copie) {
+    const nom = copie.match(/^\s*Nom\s*:\s*(.+)$/im)?.[1]?.trim() || "";
+    const prenom = copie.match(/^\s*Prénom\s*:\s*(.+)$/im)?.[1]?.trim() || "";
+    return [prenom, nom].filter(Boolean).join(" ") || "Élève non identifié";
+}
+
 async function corrigerCopie() {
     masquerErreur();
     masquerResultat();
@@ -83,6 +98,7 @@ async function corrigerCopie() {
         verifierFichier(fichierCopie, "une copie d’élève");
 
         activerChargement();
+        controleurCorrection = new AbortController();
 
         const [corrige, copieEleve] = await Promise.all([
             lireFichierTexte(fichierCorrige),
@@ -91,6 +107,7 @@ async function corrigerCopie() {
 
         const reponse = await fetch(API_URL, {
             method: "POST",
+            signal: controleurCorrection.signal,
             headers: {
                 "Content-Type": "application/json"
             },
@@ -119,6 +136,11 @@ async function corrigerCopie() {
         afficherCorrection(donnees);
     } catch (erreur) {
         console.error(erreur);
+
+        if (erreur.name === "AbortError") {
+            afficherErreur("Correction annulée.");
+            return;
+        }
 
         const message = erreur instanceof TypeError
             ? "Impossible de joindre FastAPI. Vérifiez que Uvicorn fonctionne et que CORS est configuré."
@@ -151,7 +173,8 @@ function desactiverChargement() {
     champCorrige.disabled = false;
     champCopie.disabled = false;
     boutonCorriger.textContent = "Corriger la copie";
-    zoneChargement.classList.add("cache");
+                        afficherCorrection(donnees, extraireNomEleve(copieEleve));
+    controleurCorrection = null;
 
     if (intervalleTemps !== null) {
         clearInterval(intervalleTemps);
@@ -214,33 +237,44 @@ function afficherCorrection(correction) {
             </p>
         </div>
 
-        <p class="note-question">
-            <strong>Note proposée :</strong>
-            ${echapperHtml(question.note_proposee)} /
-            ${echapperHtml(question.note_maximale)}
-        </p>
+        <div class="note-question">
+            <label for="note-${echapperHtml(question.numero)}">
+                Note attribuée
+            </label>
+            <input
+                id="note-${echapperHtml(question.numero)}"
+                class="note-manuelle"
+                type="number"
+                min="0"
+                max="${echapperHtml(question.note_maximale)}"
+                step="0.5"
+                value="${echapperHtml(question.note_proposee)}"
+                data-note-max="${echapperHtml(question.note_maximale)}"
+            >
+            <span>/ ${echapperHtml(question.note_maximale)}</span>
+        </div>
 
         <div class="details-correction">
             <div class="bloc-correct">
-                <h4>Éléments corrects</h4>
-                ${creerListe(question.elements_corrects)}
+                <label for="corrects-${echapperHtml(question.numero)}">
+                    Éléments corrects
+                </label>
+                <textarea id="corrects-${echapperHtml(question.numero)}" class="champ-manuel" rows="3">${echapperHtml((question.elements_corrects || []).join("\n"))}</textarea>
             </div>
 
             <div class="bloc-manquant">
-                <h4>Éléments manquants ou incorrects</h4>
-
-                ${creerListe(
-                    question.elements_manquants_ou_incorrects
-                )}
+                <label for="manquants-${echapperHtml(question.numero)}">
+                    Éléments à améliorer
+                </label>
+                <textarea id="manquants-${echapperHtml(question.numero)}" class="champ-manuel" rows="3">${echapperHtml((question.elements_manquants_ou_incorrects || []).join("\n"))}</textarea>
             </div>
         </div>
 
         <div class="commentaire-question">
-            <h4>Commentaire</h4>
-
-            <p>
-                ${echapperHtml(question.commentaire)}
-            </p>
+            <label for="commentaire-${echapperHtml(question.numero)}">
+                Commentaire enseignant
+            </label>
+            <textarea id="commentaire-${echapperHtml(question.numero)}" class="champ-manuel" rows="3">${echapperHtml(question.commentaire || "")}</textarea>
         </div>
 
         ${
@@ -261,10 +295,15 @@ function afficherCorrection(correction) {
         : '';
 
     contenuResultat.innerHTML = `
+        <div class="eleve-corrige">
+            <span>Élève corrigé</span>
+            <strong>${echapperHtml(nomEleve)}</strong>
+        </div>
+
         <p class="note-totale">
-            Note totale proposée :
-            ${echapperHtml(correction.note_totale_proposee)} /
-            ${echapperHtml(correction.note_totale_maximale)}
+            Note totale :
+            <span id="note-totale-valeur">${echapperHtml(correction.note_totale_proposee)}</span> /
+            <span>${echapperHtml(correction.note_totale_maximale)}</span>
         </p>
 
         ${htmlQuestions}
@@ -280,7 +319,28 @@ function afficherCorrection(correction) {
     `;
 
     zoneResultat.classList.remove("cache");
+    contenuResultat.querySelectorAll(".note-manuelle").forEach((champ) => {
+        champ.addEventListener("input", mettreAJourNoteTotale);
+        champ.addEventListener("change", limiterNote);
+    });
     zoneResultat.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function limiterNote(event) {
+    const champ = event.currentTarget;
+    const maximum = Number(champ.dataset.noteMax);
+    const valeur = Math.max(0, Math.min(maximum, Number(champ.value) || 0));
+    champ.value = valeur;
+    mettreAJourNoteTotale();
+}
+
+function mettreAJourNoteTotale() {
+    const total = [...contenuResultat.querySelectorAll(".note-manuelle")]
+        .reduce((somme, champ) => somme + (Number(champ.value) || 0), 0);
+    const totalElement = document.getElementById("note-totale-valeur");
+    if (totalElement) {
+        totalElement.textContent = Number.isInteger(total) ? total : total.toFixed(1);
+    }
 }
 
 function creerListe(elements) {
