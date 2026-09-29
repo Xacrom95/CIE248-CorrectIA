@@ -2,57 +2,134 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
     <title>CorrectIA</title>
-    <link rel="stylesheet" href="style.css">
+
+    style.css
 </head>
+
 <body>
     <main class="conteneur">
         <header>
             <h1>CorrectIA</h1>
-            <p>Assistant local de correction d’évaluations</p>
+
+            <p>
+                Assistant local de correction d’évaluations
+            </p>
         </header>
 
         <section class="formulaire">
             <div class="champ-fichier">
-                <label for="corrige">Corrigé complet avec barèmes</label>
-                <p class="aide">Format accepté : fichier texte UTF-8 (.txt)</p>
-                <input type="file" id="corrige" accept=".txt,text/plain">
-                <p id="nom-corrige" class="nom-fichier">Aucun fichier sélectionné</p>
+                <label for="corrige">
+                    Corrigé complet avec barèmes
+                </label>
+
+                <p class="aide">
+                    Format accepté : fichier texte UTF-8 (.txt)
+                </p>
+
+                <input
+                    type="file"
+                    id="corrige"
+                    accept=".txt,text/plain"
+                >
+
+                <p
+                    id="nom-corrige"
+                    class="nom-fichier"
+                >
+                    Aucun fichier sélectionné
+                </p>
             </div>
 
             <div class="champ-fichier">
-                <label for="copie">Copie de l’élève</label>
-                <p class="aide">Format accepté : fichier texte UTF-8 (.txt)</p>
-                <input type="file" id="copie" accept=".txt,text/plain">
-                <p id="nom-copie" class="nom-fichier">Aucun fichier sélectionné</p>
+                <label for="copie">
+                    Copie de l’élève
+                </label>
+
+                <p class="aide">
+                    Format accepté : fichier texte UTF-8 (.txt)
+                </p>
+
+                <input
+                    type="file"
+                    id="copie"
+                    accept=".txt,text/plain"
+                >
+
+                <p
+                    id="nom-copie"
+                    class="nom-fichier"
+                >
+                    Aucun fichier sélectionné
+                </p>
             </div>
 
-            <button id="bouton-corriger" type="button">
+            <button
+                id="bouton-corriger"
+                type="button"
+            >
                 Corriger la copie
             </button>
 
-            <div id="chargement" class="chargement cache" role="status" aria-live="polite">
-                <div class="spinner" aria-hidden="true"></div>
+            <div
+                id="chargement"
+                class="chargement cache"
+                role="status"
+                aria-live="polite"
+            >
+                <div
+                    class="spinner"
+                    aria-hidden="true"
+                ></div>
+
                 <div>
-                    <strong>Correction en cours...</strong>
-                    <p>L’analyse par Llama 3.1 peut prendre quelques instants.</p>
-                    <p id="temps-ecoule">Temps écoulé : 0 s</p>
+                    <strong>
+                        Correction en cours...
+                    </strong>
+
+                    <p>
+                        L’analyse par Llama 3.1 peut prendre
+                        quelques instants.
+                    </p>
+
+                    <p id="temps-ecoule">
+                        Temps écoulé : 0 s
+                    </p>
                 </div>
             </div>
 
-            <div id="erreur" class="erreur cache" role="alert"></div>
+            <div
+                id="erreur"
+                class="erreur cache"
+                role="alert"
+            ></div>
         </section>
 
-        <section id="resultat" class="resultat cache" aria-live="polite">
+        <section
+            id="resultat"
+            class="resultat cache"
+            aria-live="polite"
+        >
             <h2>Proposition de correction</h2>
+
             <div id="contenu-resultat"></div>
-            <button id="bouton-nouvelle-correction" type="button" class="bouton-secondaire">
+
+            <button
+                id="bouton-nouvelle-correction"
+                type="button"
+                class="bouton-secondaire"
+            >
                 Nouvelle correction
             </button>
         </section>
     </main>
 
-    <script src="app.js"></script>
+    app.jsscript>
 </body>
 </html>
