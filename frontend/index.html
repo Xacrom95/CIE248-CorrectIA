@@ -2,24 +2,52 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CorrectIA</title>
-    style.css
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <main class="conteneur">
+        <header>
+            <h1>CorrectIA</h1>
+            <p>Assistant local de correction d'évaluations</p>
+        </header>
 
-    <h1>CorrectIA</h1>
+        <section class="formulaire">
+            <label for="corrige">Corrigé complet avec barèmes</label>
+            <textarea
+                id="corrige"
+                placeholder="Question 1 : ...&#10;Réponse attendue : ...&#10;Barème : 5 points"
+            ></textarea>
 
-    <label>Corrigé</label>
-    <textarea id="corrige"></textarea>
+            <label for="copie">Copie de l'élève</label>
+            <textarea
+                id="copie"
+                placeholder="Question 1 : réponse de l'élève..."
+            ></textarea>
 
-    <label>Copie de l'élève</label>
-    <textarea id="copie"></textarea>
+            <button id="bouton-corriger" type="button">
+                Corriger la copie
+            </button>
 
-    <button onclick="corriger()">
-        Corriger
-    </button>
+            <div id="chargement" class="chargement cache" role="status" aria-live="polite">
+                <div class="spinner" aria-hidden="true"></div>
+                <div>
+                    <strong>Correction en cours...</strong>
+                    <p>L'analyse par Llama 3.1 peut prendre quelques instants.</p>
+                    <p id="temps-ecoule">Temps écoulé : 0 s</p>
+                </div>
+            </div>
 
-    <pre id="resultat"></pre>
+            <div id="erreur" class="erreur cache" role="alert"></div>
+        </section>
 
-    <script src="app/body>
+        <section id="resultat" class="resultat cache" aria-live="polite">
+            <h2>Proposition de correction</h2>
+            <div id="contenu-resultat"></div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
 </html>
