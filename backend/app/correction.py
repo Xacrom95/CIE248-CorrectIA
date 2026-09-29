@@ -119,12 +119,12 @@ def construire_prompt(
     copie_eleve: str
 ) -> str:
     """
-    Construit le prompt transmis à Llama 3.1.
+    Construit le prompt envoyé à Llama 3.1.
 
     Le corrigé doit contenir :
     - les questions ;
     - les réponses attendues ;
-    - les barèmes.
+    - le barème de chaque question.
     """
 
     nombre_questions = len(extraire_document(corrige, "Réponse :"))
@@ -137,7 +137,8 @@ Le document CORRIGÉ contient :
 - les réponses attendues ;
 - le barème de chaque question.
 
-Le document COPIE DE L'ÉLÈVE contient les réponses données par l'élève.
+Le document COPIE DE L'ÉLÈVE contient les réponses données
+par l'élève.
 
 Règles obligatoires :
 
@@ -151,10 +152,6 @@ Règles obligatoires :
 - Une réponse partielle ne doit généralement pas recevoir la note maximale.
 - La note maximale doit être réservée aux réponses complètes ou quasiment complètes.
 - Une réponse correcte mais incomplète doit recevoir une note intermédiaire.
-- Détermine d'abord les éléments réellement demandés par la question, sans exiger les explications supplémentaires du corrigé.
-- Si la réponse contient l'information essentielle demandée, elle est correcte et doit recevoir la note maximale lorsque la question ne demande pas plusieurs éléments.
-- Pour une question sur la signification d'un acronyme, son développement exact est une réponse complète, même si la traduction ou l'explication complémentaire du corrigé n'est pas reprise.
-- Ne marque jamais une réponse correcte comme fausse uniquement parce qu'elle est plus courte que le corrigé.
 - N'utilise la note zéro que si la réponse est vide, totalement fausse ou hors sujet.
 - Ne sanctionne pas une simple omission aussi sévèrement qu'une erreur.
 - Fais la différence entre :
@@ -181,10 +178,6 @@ Règles obligatoires :
 - Si aucune réponse n'est présente, utilise une chaîne vide pour reponse_eleve.
 - Les éléments corrects doivent uniquement contenir les informations réellement présentes dans la réponse de l'élève.
 - Les éléments manquants doivent uniquement contenir les informations attendues dans le corrigé mais absentes de la réponse.
-- Le corrigé contient exactement {nombre_questions} question(s).
-- Retourne exactement {nombre_questions} question(s), sans fusionner deux questions.
-- Le champ analyse_detaillee doit expliquer ce qui est maîtrisé et ce qui l'est moins, sans répéter simplement la réponse attendue.
-- Ne prend pas en compte le nom et le prénom de l'élève dans la correction.
 
 CORRIGÉ COMPLET :
 
@@ -194,7 +187,8 @@ COPIE DE L'ÉLÈVE :
 
 {copie_eleve}
 
-Structure JSON obligatoire :
+SStructure JSON obligatoire :
+
 {{
   "questions": [
     {{
@@ -205,10 +199,10 @@ Structure JSON obligatoire :
       "note_proposee": 0,
       "note_maximale": 0,
       "elements_corrects": [
-        "Élément correct présent dans la réponse"
+        "Élément correct réellement présent dans la réponse"
       ],
       "elements_manquants_ou_incorrects": [
-        "Élément attendu absent ou réellement incorrect"
+        "Élément attendu absent ou information réellement incorrecte"
       ],
             "analyse_detaillee": "Explication précise du niveau de maîtrise",
       "commentaire": "Commentaire court et factuel",
@@ -229,8 +223,8 @@ def appeler_ollama(
     ollama_url: str = OLLAMA_URL
 ) -> dict:
     """
-    Transmet le prompt à l'API locale d'Ollama
-    et retourne la réponse JSON de Llama.
+    Envoie le prompt à l'API locale d'Ollama
+    et retourne le résultat produit par Llama.
     """
 
     donnees = {
@@ -317,7 +311,7 @@ def valider_question(
     index: int
 ) -> tuple[float, float]:
     """
-    Vérifie la structure et les notes d'une question.
+    Vérifie la structure et les valeurs d'une question.
 
     Retourne :
     - la note proposée ;
@@ -325,18 +319,16 @@ def valider_question(
     """
 
     champs_obligatoires = {
-        "numero",
-        "intitule",
-        "reponse_eleve",
-        "reponse_attendue",
-        "note_proposee",
-        "note_maximale",
-        "elements_corrects",
-        "elements_manquants_ou_incorrects",
-        "analyse_detaillee",
-        "commentaire",
-        "verification_humaine_recommandee"
-    }
+    "numero",
+    "intitule",
+    "reponse_eleve",
+    "note_proposee",
+    "note_maximale",
+    "elements_corrects",
+    "elements_manquants_ou_incorrects",
+    "commentaire",
+    "verification_humaine_recommandee"
+}
     champs_manquants = (
         champs_obligatoires - question.keys()
     )
@@ -347,27 +339,24 @@ def valider_question(
             f"{sorted(champs_manquants)}"
         )
 
-    note_proposee = convertir_en_nombre(
-        question["note_proposee"],
-        f"note_proposee de la question {index}"
+    if not isinstance(
+    question["intitule"],
+    str
+):
+    raise ValueError(
+        f"L'intitulé de la question {index} "
+        "doit être une chaîne de caractères."
     )
 
-    note_maximale = convertir_en_nombre(
-        question["note_maximale"],
-        f"note_maximale de la question {index}"
+    if not isinstance(
+    question["reponse_eleve"],
+    str
+):
+    raise ValueError(
+        f"La réponse de l'élève pour la question {index} "
+        "doit être une chaîne de caractères."
     )
-
-    for champ in (
-        "intitule",
-        "reponse_eleve",
-        "reponse_attendue",
-        "analyse_detaillee"
-    ):
-        if not isinstance(question[champ], str):
-            raise ValueError(
-                f"{champ} de la question {index} doit être une chaîne."
-            )
-
+    
     if note_maximale <= 0:
         raise ValueError(
             f"Le barème de la question {index} "
@@ -394,7 +383,7 @@ def valider_question(
         list
     ):
         raise ValueError(
-            f"elements_manquants_ou_incorrects "
+            "elements_manquants_ou_incorrects "
             f"de la question {index} doit être une liste."
         )
 
@@ -403,7 +392,7 @@ def valider_question(
         bool
     ):
         raise ValueError(
-            f"verification_humaine_recommandee "
+            "verification_humaine_recommandee "
             f"de la question {index} doit être un booléen."
         )
 
@@ -450,13 +439,6 @@ def valider_correction(
             "dans le corrigé."
         )
 
-    if nombre_questions_attendu and len(questions) != nombre_questions_attendu:
-        raise ValueError(
-            "Le modèle n'a pas traité toutes les questions : "
-            f"{len(questions)} reçue(s), "
-            f"{nombre_questions_attendu} attendue(s)."
-        )
-
     total_recalcule = 0.0
     maximum_recalcule = 0.0
 
@@ -478,6 +460,32 @@ def valider_correction(
         total_recalcule += note
         maximum_recalcule += maximum
 
+    total_modele = convertir_en_nombre(
+        correction["note_totale_proposee"],
+        "note_totale_proposee"
+    )
+
+    maximum_modele = convertir_en_nombre(
+        correction["note_totale_maximale"],
+        "note_totale_maximale"
+    )
+
+    tolerance = 0.01
+
+    if abs(total_modele - total_recalcule) > tolerance:
+        raise ValueError(
+            "Le total calculé par le modèle est incohérent : "
+            f"{total_modele}, alors que la somme des questions "
+            f"donne {total_recalcule}."
+        )
+
+    if abs(maximum_modele - maximum_recalcule) > tolerance:
+        raise ValueError(
+            "Le barème total calculé par le modèle est incohérent : "
+            f"{maximum_modele}, alors que la somme des barèmes "
+            f"donne {maximum_recalcule}."
+        )
+
     if not isinstance(
         correction["verification_humaine_recommandee"],
         bool
@@ -487,8 +495,8 @@ def valider_correction(
             "doit être un booléen."
         )
 
-    # Les totaux sont réécrits avec les valeurs recalculées
-    # par le backend afin d'éviter une erreur d'addition du LLM.
+    # Le backend recalcule les totaux pour ne pas dépendre
+    # des capacités d'addition du LLM.
     correction["note_totale_proposee"] = total_recalcule
     correction["note_totale_maximale"] = maximum_recalcule
 
@@ -498,7 +506,7 @@ def corriger_copie(
     copie_eleve: str
 ) -> dict:
     """
-    Fonction principale utilisée par FastAPI.
+    Fonction principale appelée par FastAPI.
     """
 
     if not corrige.strip():
