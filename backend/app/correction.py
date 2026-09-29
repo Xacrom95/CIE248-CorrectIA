@@ -1,64 +1,98 @@
 import json
+import os
 import urllib.error
 import urllib.request
 
 
-OLLAMA_URL = "http://localhost:11434"
-OLLAMA_MODEL = "llama3.1:8b"
+OLLAMA_URL = os.getenv(
+    "OLLAMA_URL",
+    "http://localhost:11434"
+)
 
-def construire_prompt_copie(
+OLLAMA_MODEL = os.getenv(
+    "OLLAMA_MODEL",
+    "llama3.1:8b"
+)
+
+
+def construire_prompt(
     corrige: str,
     copie_eleve: str
 ) -> str:
+    """
+    Construit le prompt transmis à Llama 3.1.
+
+    Le corrigé doit contenir :
+    - les questions ;
+    - les réponses attendues ;
+    - les barèmes.
+    """
 
     return f"""
 Tu assistes un enseignant dans la correction d'une évaluation complète.
 
-Le corrigé contient :
-- les questions ;
+Le document CORRIGÉ contient :
+- les questions de l'évaluation ;
 - les réponses attendues ;
-- les barèmes.
+- le barème de chaque question.
 
-La copie contient les réponses de l'élève.
+Le document COPIE DE L'ÉLÈVE contient les réponses données par l'élève.
 
 Règles obligatoires :
-- Identifie les questions présentes dans le corrigé.
+- Identifie toutes les questions présentes dans le corrigé.
+- Retrouve le barème associé à chaque question.
 - Associe chaque réponse de l'élève à la question correspondante.
-- Compare uniquement les réponses avec le corrigé fourni.
-- N'exige aucune information absente du corrigé.
-- Respecte le barème associé à chaque question.
-- Ne sanctionne pas l'orthographe si elle ne modifie pas le sens.
-- Signale les questions absentes ou impossibles à associer.
-- Ne dépasse jamais le total des points prévu.
-- Recommande une vérification humaine en cas d'ambiguïté.
-- Retourne uniquement un objet JSON valide.
-- La note finale doit toujours être validée par un enseignant.
+- Une réponse partiellement correcte doit obtenir une partie des points.
+- Une réponse qui contient l'idée principale attendue doit recevoir une note significative même si elle est incomplète.
+- N'exige aucune information qui ne figure pas dans le corrigé.
+- Les synonymes et reformulations sont acceptés.
+- La note zéro ne doit être attribuée que lorsque la réponse est absente, totalement fausse ou sans rapport avec la question.
+- Une réponse correcte mais incomplète doit recevoir une note intermédiaire.
+- Si le commentaire indique qu'une réponse est incomplète, le champ elements_manquants_ou_incorrects doit obligatoirement préciser les éléments attendus qui ne figurent pas dans la réponse de l'élève.
+- Si elements_manquants_ou_incorrects est vide, la réponse ne doit pas être qualifiée d'incomplète dans le commentaire
+- Respecte strictement le barème de chaque question.
+- Ne sanctionne pas les fautes d'orthographe si elles ne changent pas le sens.
+- Une question sans réponse doit recevoir zéro point.
+- Ne dépasse jamais le nombre maximal de points prévu.
+- Calcule la note totale en additionnant les notes de chaque question.
+- Recommande une vérification humaine si une question, une réponse ou un barème est ambigu.
+- La correction produite est une proposition et doit toujours être validée par un enseignant.
+- Retourne uniquement un objet JSON valide, sans texte avant ou après.
 
 CORRIGÉ COMPLET :
+
 {corrige}
 
 COPIE DE L'ÉLÈVE :
+
 {copie_eleve}
 
 Structure JSON obligatoire :
+
 {{
   "questions": [
     {{
       "numero": 1,
-      "intitule": "Question identifiée",
+      "intitule": "Intitulé de la question",
       "note_proposee": 0,
       "note_maximale": 0,
-      "elements_corrects": [],
-      "elements_manquants_ou_incorrects": [],
-      "commentaire": "Commentaire court"
+      "elements_corrects": [
+        "Liste des éléments présents dans la réponse de l'élève et considérés comme corrects."
+      ],
+      "elements_manquants_ou_incorrects": [
+        "Élément manquant ou incorrect"
+      ],
+      "commentaire": "Commentaire court et factuel",
+      "verification_humaine_recommandee": false
     }}
   ],
   "note_totale_proposee": 0,
   "note_totale_maximale": 0,
-  "commentaire_global": "Commentaire global",
-  "verification_humaine_recommandee": true
+  "commentaire_global": "Commentaire général court et factuel",
+  "verification_humaine_recommandee": false
 }}
 """
+
 
 def appeler_ollama(
     prompt: str,
@@ -66,7 +100,8 @@ def appeler_ollama(
     ollama_url: str = OLLAMA_URL
 ) -> dict:
     """
-    Envoie le prompt à l'API locale d'Ollama.
+    Transmet le prompt à l'API locale d'Ollama
+    et retourne la réponse JSON de Llama.
     """
 
     donnees = {
@@ -131,16 +166,38 @@ def appeler_ollama(
         ) from erreur
 
 
-def valider_correction(
-    correction: dict,
-    bareme: float
-) -> None:
+def convertir_en_nombre(
+    valeur,
+    nom_champ: str
+) -> float:
     """
-    Vérifie que le résultat produit par Llama respecte
-    la structure attendue.
+    Convertit une valeur retournée par Llama en nombre.
+    """
+
+    try:
+        return float(valeur)
+
+    except (TypeError, ValueError) as erreur:
+        raise ValueError(
+            f"Le champ {nom_champ} doit être un nombre."
+        ) from erreur
+
+
+def valider_question(
+    question: dict,
+    index: int
+) -> tuple[float, float]:
+    """
+    Vérifie la structure et les notes d'une question.
+
+    Retourne :
+    - la note proposée ;
+    - la note maximale.
     """
 
     champs_obligatoires = {
+        "numero",
+        "intitule",
         "note_proposee",
         "note_maximale",
         "elements_corrects",
@@ -150,54 +207,151 @@ def valider_correction(
     }
 
     champs_manquants = (
+        champs_obligatoires - question.keys()
+    )
+
+    if champs_manquants:
+        raise ValueError(
+            f"Champs manquants dans la question {index} : "
+            f"{sorted(champs_manquants)}"
+        )
+
+    note_proposee = convertir_en_nombre(
+        question["note_proposee"],
+        f"note_proposee de la question {index}"
+    )
+
+    note_maximale = convertir_en_nombre(
+        question["note_maximale"],
+        f"note_maximale de la question {index}"
+    )
+
+    if note_maximale <= 0:
+        raise ValueError(
+            f"Le barème de la question {index} "
+            "doit être supérieur à zéro."
+        )
+
+    if not 0 <= note_proposee <= note_maximale:
+        raise ValueError(
+            f"Note invalide pour la question {index} : "
+            f"{note_proposee}/{note_maximale}"
+        )
+
+    if not isinstance(
+        question["elements_corrects"],
+        list
+    ):
+        raise ValueError(
+            f"elements_corrects de la question {index} "
+            "doit être une liste."
+        )
+
+    if not isinstance(
+        question["elements_manquants_ou_incorrects"],
+        list
+    ):
+        raise ValueError(
+            f"elements_manquants_ou_incorrects "
+            f"de la question {index} doit être une liste."
+        )
+
+    if not isinstance(
+        question["verification_humaine_recommandee"],
+        bool
+    ):
+        raise ValueError(
+            f"verification_humaine_recommandee "
+            f"de la question {index} doit être un booléen."
+        )
+
+    return note_proposee, note_maximale
+
+
+def valider_correction(
+    correction: dict
+) -> None:
+    """
+    Vérifie la structure globale de la correction
+    et recalcule les totaux.
+    """
+
+    champs_obligatoires = {
+        "questions",
+        "note_totale_proposee",
+        "note_totale_maximale",
+        "commentaire_global",
+        "verification_humaine_recommandee"
+    }
+
+    champs_manquants = (
         champs_obligatoires - correction.keys()
     )
 
     if champs_manquants:
         raise ValueError(
-            f"Champs manquants dans la correction : "
+            "Champs manquants dans la correction : "
             f"{sorted(champs_manquants)}"
         )
 
-    try:
-        note = float(correction["note_proposee"])
-        note_maximale = float(
-            correction["note_maximale"]
+    questions = correction["questions"]
+
+    if not isinstance(questions, list):
+        raise ValueError(
+            "Le champ questions doit être une liste."
         )
 
-    except (TypeError, ValueError) as erreur:
+    if not questions:
         raise ValueError(
-            "La note proposée et la note maximale "
-            "doivent être des nombres."
-        ) from erreur
-
-    if note_maximale != bareme:
-        raise ValueError(
-            f"Barème incohérent : Llama retourne "
-            f"{note_maximale}, mais le barème attendu "
-            f"est {bareme}."
+            "Aucune question n'a été identifiée "
+            "dans le corrigé."
         )
 
-    if not 0 <= note <= bareme:
-        raise ValueError(
-            f"Note invalide : {note}/{bareme}"
-        )
+    total_recalcule = 0.0
+    maximum_recalcule = 0.0
 
-    if not isinstance(
-        correction["elements_corrects"],
-        list
+    for index, question in enumerate(
+        questions,
+        start=1
     ):
-        raise ValueError(
-            "Le champ elements_corrects doit être une liste."
+        if not isinstance(question, dict):
+            raise ValueError(
+                f"La question {index} doit être "
+                "un objet JSON."
+            )
+
+        note, maximum = valider_question(
+            question=question,
+            index=index
         )
 
-    if not isinstance(
-        correction["elements_manquants_ou_incorrects"],
-        list
-    ):
+        total_recalcule += note
+        maximum_recalcule += maximum
+
+    total_modele = convertir_en_nombre(
+        correction["note_totale_proposee"],
+        "note_totale_proposee"
+    )
+
+    maximum_modele = convertir_en_nombre(
+        correction["note_totale_maximale"],
+        "note_totale_maximale"
+    )
+
+    tolerance = 0.01
+
+    if abs(total_modele - total_recalcule) > tolerance:
         raise ValueError(
-            "Le champ elements_manquants_ou_incorrects "
-            "doit être une liste."
+            "Le total calculé par le modèle est incohérent : "
+            f"{total_modele}, alors que la somme des questions "
+            f"donne {total_recalcule}."
+        )
+
+    if abs(maximum_modele - maximum_recalcule) > tolerance:
+        raise ValueError(
+            "Le barème total calculé par le modèle est incohérent : "
+            f"{maximum_modele}, alors que la somme des barèmes "
+            f"donne {maximum_recalcule}."
         )
 
     if not isinstance(
@@ -205,14 +359,24 @@ def valider_correction(
         bool
     ):
         raise ValueError(
-            "Le champ verification_humaine_recommandee "
+            "verification_humaine_recommandee "
             "doit être un booléen."
         )
+
+    # Les totaux sont réécrits avec les valeurs recalculées
+    # par le backend afin d'éviter une erreur d'addition du LLM.
+    correction["note_totale_proposee"] = total_recalcule
+    correction["note_totale_maximale"] = maximum_recalcule
+
 
 def corriger_copie(
     corrige: str,
     copie_eleve: str
 ) -> dict:
+    """
+    Fonction principale utilisée par FastAPI.
+    """
+
     if not corrige.strip():
         raise ValueError(
             "Le corrigé ne peut pas être vide."
@@ -223,14 +387,18 @@ def corriger_copie(
             "La copie de l'élève ne peut pas être vide."
         )
 
-    prompt = construire_prompt_copie(
+    prompt = construire_prompt(
         corrige=corrige,
         copie_eleve=copie_eleve
     )
 
-    correction = appeler_ollama(prompt)
+    correction = appeler_ollama(
+        prompt=prompt
+    )
 
-    valider_correction_copie(correction)
+    valider_correction(
+        correction=correction
+    )
 
     correction["validation_finale_requise"] = True
     correction["modele_utilise"] = OLLAMA_MODEL
