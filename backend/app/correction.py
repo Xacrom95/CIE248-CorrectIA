@@ -178,6 +178,7 @@ Règles obligatoires :
 - Si aucune réponse n'est présente, utilise une chaîne vide pour reponse_eleve.
 - Les éléments corrects doivent uniquement contenir les informations réellement présentes dans la réponse de l'élève.
 - Les éléments manquants doivent uniquement contenir les informations attendues dans le corrigé mais absentes de la réponse.
+- Le nom et le prénom de l'élève ne doivent pas être pris en compte pour la correction des questions.
 
 CORRIGÉ COMPLET :
 
