@@ -10,21 +10,23 @@
     <main class="conteneur">
         <header>
             <h1>CorrectIA</h1>
-            <p>Assistant local de correction d'évaluations</p>
+            <p>Assistant local de correction d’évaluations</p>
         </header>
 
         <section class="formulaire">
-            <label for="corrige">Corrigé complet avec barèmes</label>
-            <textarea
-                id="corrige"
-                placeholder="Question 1 : ...&#10;Réponse attendue : ...&#10;Barème : 5 points"
-            ></textarea>
+            <div class="champ-fichier">
+                <label for="corrige">Corrigé complet avec barèmes</label>
+                <p class="aide">Format accepté : fichier texte UTF-8 (.txt)</p>
+                <input type="file" id="corrige" accept=".txt,text/plain">
+                <p id="nom-corrige" class="nom-fichier">Aucun fichier sélectionné</p>
+            </div>
 
-            <label for="copie">Copie de l'élève (.txt)</label>
-            <textarea
-                id="copie"
-                placeholder="Question 1 : réponse de l'élève..."
-            ></textarea>
+            <div class="champ-fichier">
+                <label for="copie">Copie de l’élève</label>
+                <p class="aide">Format accepté : fichier texte UTF-8 (.txt)</p>
+                <input type="file" id="copie" accept=".txt,text/plain">
+                <p id="nom-copie" class="nom-fichier">Aucun fichier sélectionné</p>
+            </div>
 
             <button id="bouton-corriger" type="button">
                 Corriger la copie
@@ -34,7 +36,7 @@
                 <div class="spinner" aria-hidden="true"></div>
                 <div>
                     <strong>Correction en cours...</strong>
-                    <p>L'analyse par Llama 3.1 peut prendre quelques instants.</p>
+                    <p>L’analyse par Llama 3.1 peut prendre quelques instants.</p>
                     <p id="temps-ecoule">Temps écoulé : 0 s</p>
                 </div>
             </div>
@@ -45,6 +47,9 @@
         <section id="resultat" class="resultat cache" aria-live="polite">
             <h2>Proposition de correction</h2>
             <div id="contenu-resultat"></div>
+            <button id="bouton-nouvelle-correction" type="button" class="bouton-secondaire">
+                Nouvelle correction
+            </button>
         </section>
     </main>
 
