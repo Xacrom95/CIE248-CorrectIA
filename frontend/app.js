@@ -6,6 +6,7 @@ const champCopie = document.getElementById("copie");
 const nomCorrige = document.getElementById("nom-corrige");
 const nomCopie = document.getElementById("nom-copie");
 const boutonCorriger = document.getElementById("bouton-corriger");
+const boutonTheme = document.getElementById("bouton-theme");
 const boutonNouvelleCorrection = document.getElementById("bouton-nouvelle-correction");
 const zoneChargement = document.getElementById("chargement");
 const tempsEcoule = document.getElementById("temps-ecoule");
@@ -15,6 +16,22 @@ const contenuResultat = document.getElementById("contenu-resultat");
 
 let intervalleTemps = null;
 let debutCorrection = null;
+
+function appliquerTheme(theme) {
+    const nocturne = theme === "dark";
+    document.documentElement.dataset.theme = nocturne ? "dark" : "light";
+    boutonTheme.textContent = nocturne ? "Mode diurne" : "Mode nocturne";
+    boutonTheme.setAttribute(
+        "aria-label",
+        nocturne ? "Activer le mode diurne" : "Activer le mode nocturne"
+    );
+    localStorage.setItem("correctia-theme", nocturne ? "dark" : "light");
+}
+
+appliquerTheme(localStorage.getItem("correctia-theme") || "light");
+boutonTheme.addEventListener("click", () => {
+    appliquerTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+});
 
 champCorrige.addEventListener("change", () => afficherNomFichier(champCorrige, nomCorrige));
 champCopie.addEventListener("change", () => afficherNomFichier(champCopie, nomCopie));
