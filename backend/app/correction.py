@@ -215,16 +215,16 @@ def valider_question(
     """
 
     champs_obligatoires = {
-        "numero",
-        "intitule",
-        "note_proposee",
-        "note_maximale",
-        "elements_corrects",
-        "elements_manquants_ou_incorrects",
-        "commentaire",
-        "verification_humaine_recommandee"
-    }
-
+    "numero",
+    "intitule",
+    "reponse_eleve",
+    "note_proposee",
+    "note_maximale",
+    "elements_corrects",
+    "elements_manquants_ou_incorrects",
+    "commentaire",
+    "verification_humaine_recommandee"
+}
     champs_manquants = (
         champs_obligatoires - question.keys()
     )
@@ -245,6 +245,24 @@ def valider_question(
         f"note_maximale de la question {index}"
     )
 
+    if not isinstance(
+    question["intitule"],
+    str
+):
+    raise ValueError(
+        f"L'intitulé de la question {index} "
+        "doit être une chaîne de caractères."
+    )
+
+    if not isinstance(
+    question["reponse_eleve"],
+    str
+):
+    raise ValueError(
+        f"La réponse de l'élève pour la question {index} "
+        "doit être une chaîne de caractères."
+    )
+    
     if note_maximale <= 0:
         raise ValueError(
             f"Le barème de la question {index} "
