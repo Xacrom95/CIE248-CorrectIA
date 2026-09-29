@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from app.correction import corriger_copie
@@ -11,7 +12,23 @@ app = FastAPI(
         "Toutes les corrections doivent être validées "
         "par un enseignant."
     ),
-    version="0.2.0"
+    version="0.3.0"
+)
+
+
+# Configuration CORS adaptée au prototype local.
+#
+# Le frontend fonctionne actuellement sur le port 8080
+# et FastAPI sur le port 8000.
+#
+# Dans une version de production, il faudra remplacer "*"
+# par l'adresse exacte du frontend.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"]
 )
 
 
@@ -37,7 +54,7 @@ def accueil():
     return {
         "application": "CorrectIA",
         "status": "opérationnel",
-        "version": "0.2.0"
+        "version": "0.3.0"
     }
 
 
