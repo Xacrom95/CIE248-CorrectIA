@@ -44,6 +44,7 @@ let statistiquesDisponibles = [];
 let resultatEnAttenteSuppression = null;
 let evaluationStatistiquesCourante = null;
 let classeStatistiquesCourante = "";
+const elevesExclusStatistiques = new Set();
 const preferenceThemeSysteme = window.matchMedia("(prefers-color-scheme: dark)");
 
 function appliquerTheme(theme) {
@@ -83,10 +84,40 @@ boutonExporterStatistiques.addEventListener("click", exporterStatistiquesPdf);
 selecteurClasse.addEventListener("change", afficherEvaluationsClasse);
 selecteurEvaluation.addEventListener("change", afficherEvaluationSelectionnee);
 contenuStatistiques.addEventListener("click", (evenement) => {
+    if (evenement.target.closest(".bouton-reinitialiser-eleves")) {
+        if (evaluationStatistiquesCourante) {
+            evaluationStatistiquesCourante.eleves.forEach(eleve => {
+                elevesExclusStatistiques.delete(
+                    cleEleveStatistiques(
+                        classeStatistiquesCourante,
+                        evaluationStatistiquesCourante,
+                        eleve
+                    )
+                );
+            });
+            afficherEvaluationSelectionnee();
+        }
+        return;
+    }
+
     const boutonSuppression = evenement.target.closest(".bouton-supprimer-resultat");
     if (boutonSuppression) {
         demanderSuppressionResultat(Number(boutonSuppression.dataset.studentIndex));
     }
+});
+contenuStatistiques.addEventListener("change", (evenement) => {
+    const caseEleve = evenement.target.closest(".case-inclusion-eleve");
+    if (!caseEleve) {
+        return;
+    }
+
+    const cleEleve = caseEleve.dataset.studentKey;
+    if (caseEleve.checked) {
+        elevesExclusStatistiques.delete(cleEleve);
+    } else {
+        elevesExclusStatistiques.add(cleEleve);
+    }
+    afficherEvaluationSelectionnee();
 });
 boutonNonSuppression.addEventListener("click", () => dialogSuppression.close());
 boutonOuiSuppression.addEventListener("click", supprimerResultatConfirme);
@@ -656,55 +687,126 @@ function afficherEvaluationSelectionnee() {
 
     evaluationStatistiquesCourante = evaluation;
     classeStatistiquesCourante = classe.classe;
-    boutonExporterStatistiques.disabled = false;
+    const elevesInclus = evaluation.eleves.filter(
+        eleve => !elevesExclusStatistiques.has(
+            cleEleveStatistiques(classe.classe, evaluation, eleve)
+        )
+    );
+    const statistiquesFiltrees = calculerStatistiquesFiltrees(evaluation, elevesInclus);
+    boutonExporterStatistiques.disabled = elevesInclus.length === 0;
     const questions = evaluation.questions || [];
     contenuStatistiques.innerHTML = `
         <p class="titre-impression-statistiques">Classe ${echapperHtml(classe.classe)} · ${echapperHtml(evaluation.evaluation)} · ${echapperHtml(evaluation.date)}</p>
-        <div class="resume-evaluation">
-            <span>${evaluation.nombre_eleves} élève${evaluation.nombre_eleves > 1 ? "s" : ""}</span>
-            <span>Moyenne : ${formaterNombre(evaluation.moyenne_sur_six)} / 6</span>
-            <span>Moyenne des points : ${formaterNombre(evaluation.moyenne_points)}</span>
-        </div>
-        ${questions.length ? `
-            <section class="graphique-questions" aria-labelledby="titre-graphique-questions">
-                <h3 id="titre-graphique-questions">Réponses entièrement justes par question</h3>
-                ${questions.map(question => `
-                    <div class="ligne-graphique-question">
-                        <div class="libelle-graphique-question">
-                            <span>Q${question.numero} · ${echapperHtml(question.intitule)}</span>
-                            <strong>${question.nombre_justes} / ${question.nombre_reponses}</strong>
-                        </div>
-                        <div class="barre-graphique-question" role="img" aria-label="Question ${question.numero} : ${question.nombre_justes} réponses justes sur ${question.nombre_reponses}">
-                            <span style="width: ${question.pourcentage_justes}%"></span>
-                        </div>
-                    </div>
-                `).join("")}
-            </section>
-        ` : '<p class="etat-statistiques">Aucun score détaillé par question enregistré pour cette évaluation.</p>'}
-        <div class="tableau-statistiques-scroll">
-            <table class="tableau-statistiques">
-                <thead><tr>
-                    <th scope="col">Nom</th><th scope="col">Prénom</th>
-                    ${questions.map(question => `<th scope="col" title="${echapperAttribut(question.intitule)}">Q${question.numero}<span class="sous-titre-colonne">/${formaterNombre(question.points_max)}</span></th>`).join("")}
-                    <th scope="col">Total</th><th scope="col">Note / 6</th><th scope="col">Action</th>
-                </tr></thead>
-                <tbody>
-                    ${evaluation.eleves.map((eleve, index) => `
-                        <tr>
-                            <td>${echapperHtml(eleve.nom)}</td><td>${echapperHtml(eleve.prenom)}</td>
-                            ${questions.map(question => {
-                                const score = eleve.questions?.find(element => Number(element.numero) === Number(question.numero));
-                                return `<td>${score ? formaterNombre(score.points) : "—"}</td>`;
-                            }).join("")}
-                            <td>${formaterNombre(eleve.points)} / ${formaterNombre(eleve.points_max)}</td>
-                            <td>${formaterNombre(eleve.note_sur_six)} / 6</td>
-                            <td><button class="bouton-supprimer-resultat" type="button" data-student-index="${index}" aria-label="Supprimer le résultat de ${echapperAttribut(eleve.prenom)} ${echapperAttribut(eleve.nom)}">Supprimer</button></td>
-                        </tr>
-                    `).join("")}
-                </tbody>
-            </table>
-        </div>
+        <fieldset class="filtre-eleves-statistiques">
+            <legend>Élèves inclus dans les statistiques (${elevesInclus.length}/${evaluation.eleves.length})</legend>
+            <div class="selection-eleves-statistiques">
+                ${evaluation.eleves.map(eleve => {
+                    const cleEleve = cleEleveStatistiques(classe.classe, evaluation, eleve);
+                    return `
+                        <label>
+                            <input class="case-inclusion-eleve" type="checkbox" data-student-key="${echapperAttribut(cleEleve)}" ${elevesExclusStatistiques.has(cleEleve) ? "" : "checked"}>
+                            <span>${echapperHtml(eleve.prenom)} ${echapperHtml(eleve.nom)}</span>
+                        </label>
+                    `;
+                }).join("")}
+            </div>
+            <button class="bouton-reinitialiser-eleves" type="button" ${elevesInclus.length === evaluation.eleves.length ? "disabled" : ""}>Réinclure tous les élèves de cette évaluation</button>
+        </fieldset>
+        ${elevesInclus.length ? `
+            <div class="resume-evaluation">
+                <span>${statistiquesFiltrees.nombre_eleves} élève${statistiquesFiltrees.nombre_eleves > 1 ? "s" : ""}</span>
+                <span>Moyenne : ${formaterNombre(statistiquesFiltrees.moyenne_sur_six)} / 6</span>
+                <span>Moyenne des points : ${formaterNombre(statistiquesFiltrees.moyenne_points)}</span>
+            </div>
+        ` : '<p class="etat-statistiques">Aucun élève n’est inclus. Cochez au moins un élève pour afficher les statistiques.</p>'}
+        ${elevesInclus.length ? `
+            ${questions.length ? `
+                ${statistiquesFiltrees.questions.length ? `
+                    <section class="graphique-questions" aria-labelledby="titre-graphique-questions">
+                        <h3 id="titre-graphique-questions">Réponses entièrement justes par question</h3>
+                        ${statistiquesFiltrees.questions.map(question => `
+                            <div class="ligne-graphique-question">
+                                <div class="libelle-graphique-question">
+                                    <span>Q${question.numero} · ${echapperHtml(question.intitule)}</span>
+                                    <strong>${question.nombre_justes} / ${question.nombre_reponses}</strong>
+                                </div>
+                                <div class="barre-graphique-question" role="img" aria-label="Question ${question.numero} : ${question.nombre_justes} réponses justes sur ${question.nombre_reponses}">
+                                    <span style="width: ${question.pourcentage_justes}%"></span>
+                                </div>
+                            </div>
+                        `).join("")}
+                    </section>
+                ` : '<p class="etat-statistiques">Aucun score détaillé par question pour les élèves inclus.</p>'}
+            ` : '<p class="etat-statistiques">Aucun score détaillé par question enregistré pour cette évaluation.</p>'}
+            <div class="tableau-statistiques-scroll">
+                <table class="tableau-statistiques">
+                    <thead><tr>
+                        <th scope="col">Nom</th><th scope="col">Prénom</th>
+                        ${questions.map(question => `<th scope="col" title="${echapperAttribut(question.intitule)}">Q${question.numero}<span class="sous-titre-colonne">/${formaterNombre(question.points_max)}</span></th>`).join("")}
+                        <th scope="col">Total</th><th scope="col">Note / 6</th><th scope="col">Action</th>
+                    </tr></thead>
+                    <tbody>
+                        ${elevesInclus.map(eleve => `
+                            <tr>
+                                <td>${echapperHtml(eleve.nom)}</td><td>${echapperHtml(eleve.prenom)}</td>
+                                ${questions.map(question => {
+                                    const score = eleve.questions?.find(element => Number(element.numero) === Number(question.numero));
+                                    return `<td>${score ? formaterNombre(score.points) : "—"}</td>`;
+                                }).join("")}
+                                <td>${formaterNombre(eleve.points)} / ${formaterNombre(eleve.points_max)}</td>
+                                <td>${formaterNombre(eleve.note_sur_six)} / 6</td>
+                                <td><button class="bouton-supprimer-resultat" type="button" data-student-index="${evaluation.eleves.indexOf(eleve)}" aria-label="Supprimer le résultat de ${echapperAttribut(eleve.prenom)} ${echapperAttribut(eleve.nom)}">Supprimer</button></td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        ` : ""}
     `;
+}
+
+function cleEleveStatistiques(classe, evaluation, eleve) {
+    return JSON.stringify([
+        classe.trim().toLocaleLowerCase("fr-FR"),
+        evaluation.evaluation.trim().toLocaleLowerCase("fr-FR"),
+        evaluation.date.trim().toLocaleLowerCase("fr-FR"),
+        eleve.nom.trim().toLocaleLowerCase("fr-FR"),
+        eleve.prenom.trim().toLocaleLowerCase("fr-FR"),
+    ]);
+}
+
+function calculerStatistiquesFiltrees(evaluation, eleves) {
+    const nombreEleves = eleves.length;
+    const questions = (evaluation.questions || []).map(question => {
+        const reponses = eleves
+            .map(eleve => eleve.questions?.find(
+                element => Number(element.numero) === Number(question.numero)
+            ))
+            .filter(Boolean);
+        const nombreJustes = reponses.filter(
+            reponse => Number(reponse.points) >= Number(reponse.points_max)
+        ).length;
+
+        return {
+            ...question,
+            nombre_reponses: reponses.length,
+            nombre_justes: nombreJustes,
+            pourcentage_justes: reponses.length
+                ? Math.round(nombreJustes / reponses.length * 1000) / 10
+                : 0,
+        };
+    }).filter(question => question.nombre_reponses > 0);
+
+    return {
+        nombre_eleves: nombreEleves,
+        moyenne_points: nombreEleves
+            ? Math.round(eleves.reduce((total, eleve) => total + Number(eleve.points), 0) / nombreEleves * 100) / 100
+            : 0,
+        moyenne_sur_six: nombreEleves
+            ? Math.round(eleves.reduce((total, eleve) => total + Number(eleve.note_sur_six), 0) / nombreEleves * 100) / 100
+            : 0,
+        questions,
+    };
 }
 
 function formaterNombre(valeur) {
@@ -737,6 +839,62 @@ function revenirAuxCorrections() {
         zoneResultat.classList.remove("cache");
     }
     sectionFormulaire.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function demanderSuppressionResultat(index) {
+    const eleve = evaluationStatistiquesCourante?.eleves[index];
+    if (!eleve) {
+        return;
+    }
+
+    resultatEnAttenteSuppression = index;
+    messageConfirmationSuppression.textContent =
+        `Le résultat de ${eleve.prenom} ${eleve.nom} pour « ${evaluationStatistiquesCourante.evaluation} » sera supprimé définitivement.`;
+    erreurSuppression.textContent = "";
+    erreurSuppression.classList.add("cache");
+    boutonOuiSuppression.disabled = false;
+    dialogSuppression.showModal();
+}
+
+async function supprimerResultatConfirme() {
+    const index = resultatEnAttenteSuppression;
+    const evaluation = evaluationStatistiquesCourante;
+    const eleve = evaluation?.eleves[index];
+    if (index === null || !evaluation || !eleve) {
+        return;
+    }
+
+    boutonOuiSuppression.disabled = true;
+    erreurSuppression.textContent = "";
+    erreurSuppression.classList.add("cache");
+    try {
+        const parametres = new URLSearchParams({
+            classe: classeStatistiquesCourante,
+            evaluation: evaluation.evaluation,
+            date: evaluation.date,
+            nom: eleve.nom,
+            prenom: eleve.prenom,
+        });
+        const reponse = await fetch(`${API_STATISTIQUES_URL}/notes?${parametres}`, {
+            method: "DELETE",
+        });
+        const donnees = await reponse.json();
+        if (!reponse.ok) {
+            throw new Error(donnees.detail || `Erreur HTTP ${reponse.status}`);
+        }
+
+        elevesExclusStatistiques.delete(
+            cleEleveStatistiques(classeStatistiquesCourante, evaluation, eleve)
+        );
+        evaluation.eleves.splice(index, 1);
+        dialogSuppression.close();
+        afficherEvaluationSelectionnee();
+    } catch (erreur) {
+        erreurSuppression.textContent = `Impossible de supprimer le résultat : ${erreur.message}`;
+        erreurSuppression.classList.remove("cache");
+    } finally {
+        boutonOuiSuppression.disabled = false;
+    }
 }
 
 function exporterPdf() {

@@ -107,9 +107,27 @@ Ouvrez ensuite :
 
 http://127.0.0.1:8080
 
-Le frontend est servi par le serveur HTTP Python de développement. Il n'est pas encore servi par Apache ou Docker Compose. Gardez les trois terminaux ouverts pendant l'utilisation; `Ctrl+C` arrête chaque service.
+Cette méthode lance le frontend avec le serveur HTTP Python de développement. Les étapes suivantes décrivent aussi le lancement de l'application avec Docker Compose.
 
 Contrôlez séparément `http://127.0.0.1:8000/health` pour l'API et `http://127.0.0.1:8080` pour l'interface.
+
+### Démarrage avec Docker Compose
+
+Depuis la racine du dépôt, construisez et démarrez les services :
+
+```powershell
+docker compose up --build -d
+```
+
+Ouvrez `http://127.0.0.1:8080`. L'API est disponible sur `http://127.0.0.1:8000`. Au premier démarrage, le téléchargement du modèle Ollama peut prendre du temps; suivez son avancement avec `docker compose logs -f ollama-model` et attendez sa fin avant de lancer une correction. Les statistiques restent disponibles pendant ce téléchargement. Le fichier `backend/data/evaluations.json` est partagé avec le conteneur API, de sorte que les résultats existants et les nouvelles corrections validées alimentent le même fichier.
+
+Pour arrêter les services sans supprimer le modèle Ollama :
+
+```powershell
+docker compose down
+```
+
+N'ajoutez pas `-v` à cette commande, car cela supprimerait aussi le volume contenant les modèles Ollama.
 
 ## Utilisation
 
@@ -170,6 +188,8 @@ Dans le corrigé, utilisez `Réponse :` ou `Réponse attendue :` pour séparer l
 ## Statistiques des classes
 
 Le bouton **Statistiques** permet de sélectionner une classe puis une évaluation. Un graphique indique, pour chaque question, le nombre de réponses ayant obtenu tous les points. Le tableau affiche les points de chaque élève par question (`0`, le maximum ou une valeur partielle), le total et la note sur 6. Une réponse compte comme « juste » dans le graphique uniquement si elle obtient tous les points; les points partiels restent visibles dans le tableau. La note sur 6 suit la formule fédérale `((points / points_max) * 5) + 1`.
+
+La liste **Élèves inclus dans les statistiques** permet de décocher temporairement des élèves pour l'évaluation sélectionnée. Les élèves décochés ne figurent plus dans le tableau et ne sont plus pris en compte dans le graphique et les moyennes. Le bouton **Réinclure tous les élèves de cette évaluation** annule la sélection. Ce filtre n'altère pas les notes enregistrées et est réinitialisé au rechargement de la page.
 
 Le bouton **Exporter les statistiques en PDF** imprime uniquement la classe et l'évaluation sélectionnées, avec le graphique et le tableau. Dans la boîte d'impression, choisissez **Enregistrer au format PDF**; le nom proposé reprend la classe, l'évaluation et la date.
 
@@ -312,17 +332,20 @@ backend/
 		correction.py        # Prompt, extraction et validation
 		documents.py         # Lecture des fichiers TXT, PDF et DOCX
 		statistiques.py      # Stockage JSON et agrégations par question
-	POC/                   # Ancien prototype en ligne de commande
-	requirements_ollama.txt
-	data/evaluations.json  # Créé après la première validation
+		Dockerfile           # Image de l'API
+		POC/                   # Ancien prototype en ligne de commande
+		requirements_ollama.txt
+		data/evaluations.json  # Créé après la première validation
 frontend/
-	index.html             # Interface web
-	app.js                 # Appels API et affichage
-	style.css              # Styles et mode nocturne
+		index.html             # Interface web
+		app.js                 # Appels API et affichage
+		style.css              # Styles et mode nocturne
+		Dockerfile             # Image du frontend
+		nginx.conf             # Désactivation du cache des ressources
 database/
-compose.yaml             # Préparation de l'orchestration Docker
+compose.yaml             # Services Docker Compose
 ```
 
 ## État du projet
 
-Le parcours local frontend, API FastAPI et Ollama est fonctionnel. Les données de statistiques sont stockées dans un fichier JSON local. Docker Compose, une base de données serveur et l'authentification restent à finaliser.
+Le parcours frontend, API FastAPI et Ollama fonctionne en mode local ou avec Docker Compose. Les données de statistiques sont conservées dans `backend/data/evaluations.json`, partagé avec le conteneur backend lorsque Docker Compose est utilisé. Une base de données serveur et l'authentification restent à finaliser.

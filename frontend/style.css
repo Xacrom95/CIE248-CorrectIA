@@ -578,6 +578,53 @@ button:disabled {
     font: inherit;
 }
 
+.filtre-eleves-statistiques {
+    margin: 20px 0;
+    padding: 14px;
+    border: 1px solid #d8e0ea;
+    border-radius: 8px;
+}
+
+.filtre-eleves-statistiques legend {
+    padding: 0 6px;
+    color: #334155;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.selection-eleves-statistiques {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px 14px;
+    max-height: 180px;
+    overflow-y: auto;
+    margin-bottom: 12px;
+}
+
+.selection-eleves-statistiques label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+}
+
+.selection-eleves-statistiques input {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    margin: 1px 0 0;
+    accent-color: #23834a;
+}
+
+.bouton-reinitialiser-eleves {
+    margin: 0;
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
 .etat-statistiques,
 .chargement-statistiques {
     margin: 20px 0 0;
@@ -836,6 +883,14 @@ html[data-theme="dark"] .filtres-statistiques select {
     background: #0f1a2d;
 }
 
+html[data-theme="dark"] .filtre-eleves-statistiques {
+    border-color: #405474;
+}
+
+html[data-theme="dark"] .filtre-eleves-statistiques legend {
+    color: #dbeafe;
+}
+
 html[data-theme="dark"] .etat-statistiques,
 html[data-theme="dark"] .chargement-statistiques,
 html[data-theme="dark"] .resume-evaluation {
@@ -1088,7 +1143,8 @@ html[data-theme="dark"] .sous-titre-colonne {
     body[data-print-view="statistiques"] #bouton-correction,
     body[data-print-view="statistiques"] #bouton-statistiques,
     body[data-print-view="statistiques"] #bouton-export-statistiques,
-    body[data-print-view="statistiques"] .filtres-statistiques {
+    body[data-print-view="statistiques"] .filtres-statistiques,
+    body[data-print-view="statistiques"] .filtre-eleves-statistiques {
         display: none !important;
     }
 
@@ -1140,5 +1196,10 @@ html[data-theme="dark"] .sous-titre-colonne {
     body[data-print-view="statistiques"] .tableau-statistiques th {
         border-color: #cbd5e1 !important;
         color: #172033 !important;
+    }
+
+    body[data-print-view="statistiques"] .tableau-statistiques th:last-child,
+    body[data-print-view="statistiques"] .tableau-statistiques td:last-child {
+        display: none !important;
     }
 }
