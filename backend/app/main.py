@@ -1,8 +1,13 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from app.correction import corriger_copie
+from app.documents import (
+    MAX_TAILLE_DOCUMENT,
+    extraire_identite,
+    extraire_texte,
+)
 
 
 app = FastAPI(
@@ -80,11 +85,36 @@ def health():
 def correction(
     demande: CorrectionRequest
 ):
+    return generer_correction(demande.corrige, demande.copie_eleve)
+
+
+@app.post("/correction/fichiers")
+async def correction_fichiers(
+    corrige: UploadFile = File(...),
+    copie_eleve: UploadFile = File(...),
+):
     try:
-        return corriger_copie(
-            corrige=demande.corrige,
-            copie_eleve=demande.copie_eleve
+        contenu_corrige = await corrige.read(MAX_TAILLE_DOCUMENT + 1)
+        contenu_copie = await copie_eleve.read(MAX_TAILLE_DOCUMENT + 1)
+        texte_corrige = extraire_texte(corrige.filename or "", contenu_corrige)
+        texte_copie = extraire_texte(copie_eleve.filename or "", contenu_copie)
+    except ValueError as erreur:
+        raise HTTPException(
+            status_code=422,
+            detail=str(erreur)
+        ) from erreur
+
+    return generer_correction(texte_corrige, texte_copie)
+
+
+def generer_correction(corrige: str, copie_eleve: str):
+    try:
+        resultat = corriger_copie(
+            corrige=corrige,
+            copie_eleve=copie_eleve
         )
+        resultat["identite_eleve"] = extraire_identite(copie_eleve)
+        return resultat
 
     except ConnectionError as erreur:
         raise HTTPException(
