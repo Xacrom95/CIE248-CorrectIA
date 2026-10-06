@@ -62,13 +62,13 @@ button.bouton-theme:hover:not(:disabled) {
 }
 
 .theme-icon {
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     fill: none;
     stroke: currentColor;
     stroke-linecap: round;
     stroke-linejoin: round;
-    stroke-width: 1.8;
+    stroke-width: 2.1;
 }
 
 .theme-icon-moon {
@@ -501,6 +501,168 @@ button:disabled {
     gap: 10px;
 }
 
+.actions-entete {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.bouton-navigation {
+    margin: 0;
+    padding: 9px 13px;
+    border: 1px solid #8b9bb0;
+    background: #eef3f8;
+    color: #24364b;
+    font-size: 14px;
+}
+
+.bouton-navigation:hover:not(:disabled) {
+    background: #dfe8f1;
+    color: #172033;
+}
+
+.entete-statistiques {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.entete-statistiques h2 {
+    margin: 0;
+}
+
+.entete-statistiques .bouton-secondaire {
+    margin: 0;
+}
+
+.filtres-statistiques {
+    display: grid;
+    grid-template-columns: auto minmax(180px, 1fr) auto minmax(220px, 1.5fr);
+    align-items: center;
+    gap: 10px 14px;
+    margin-top: 18px;
+    padding: 16px 0;
+    border-bottom: 1px solid #d8e0ea;
+}
+
+.filtres-statistiques label {
+    margin: 0;
+    color: #334155;
+    font-size: 14px;
+}
+
+.filtres-statistiques select {
+    width: 100%;
+    min-height: 42px;
+    padding: 8px 12px;
+    border: 1px solid #94a3b8;
+    border-radius: 6px;
+    background: #f1f5f9;
+    color: #172033;
+    font: inherit;
+}
+
+.etat-statistiques,
+.chargement-statistiques {
+    margin: 20px 0 0;
+    color: #475569;
+}
+
+.resume-evaluation {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 24px;
+    margin: 20px 0;
+    color: #475569;
+    font-size: 14px;
+}
+
+.graphique-questions {
+    margin: 28px 0 32px;
+}
+
+.graphique-questions h3 {
+    margin: 0 0 18px;
+    font-size: 18px;
+}
+
+.ligne-graphique-question {
+    margin: 18px 0;
+}
+
+.libelle-graphique-question {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 7px;
+}
+
+.libelle-graphique-question span {
+    line-height: 1.45;
+}
+
+.libelle-graphique-question strong {
+    flex: 0 0 auto;
+    color: #166534;
+    font-variant-numeric: tabular-nums;
+}
+
+.barre-graphique-question {
+    height: 12px;
+    overflow: hidden;
+    border-radius: 2px;
+    background: #e2e8f0;
+}
+
+.barre-graphique-question span {
+    display: block;
+    height: 100%;
+    background: #23834a;
+}
+
+.tableau-statistiques-scroll {
+    overflow-x: auto;
+}
+
+.tableau-statistiques {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.tableau-statistiques th,
+.tableau-statistiques td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #d8e0ea;
+    white-space: nowrap;
+}
+
+.tableau-statistiques th {
+    background: #eef3f8;
+    color: #334155;
+    font-size: 14px;
+}
+
+.tableau-statistiques th:nth-child(n + 3),
+.tableau-statistiques td:nth-child(n + 3) {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.tableau-statistiques th:last-child,
+.tableau-statistiques td:last-child {
+    text-align: right;
+}
+
+.sous-titre-colonne {
+    display: block;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 400;
+}
+
 /* ----------------------------- */
 /* MODE SOMBRE — corrections     */
 /* ----------------------------- */
@@ -634,6 +796,63 @@ html[data-theme="dark"] #statut-validation {
     color: #86efac;
 }
 
+html[data-theme="dark"] .bouton-navigation {
+    border-color: #405474;
+    background: #0f1a2d;
+    color: #e5edf7;
+}
+
+html[data-theme="dark"] .bouton-navigation:hover:not(:disabled) {
+    background: #1a2a42;
+    color: #e5edf7;
+}
+
+html[data-theme="dark"] .filtres-statistiques {
+    border-color: #26354d;
+}
+
+html[data-theme="dark"] .filtres-statistiques label,
+html[data-theme="dark"] .filtres-statistiques select {
+    color: #dbeafe;
+}
+
+html[data-theme="dark"] .filtres-statistiques select {
+    border-color: #405474;
+    background: #0f1a2d;
+}
+
+html[data-theme="dark"] .etat-statistiques,
+html[data-theme="dark"] .chargement-statistiques,
+html[data-theme="dark"] .resume-evaluation {
+    color: #cbd5e1;
+}
+
+html[data-theme="dark"] .libelle-graphique-question strong {
+    color: #86efac;
+}
+
+html[data-theme="dark"] .barre-graphique-question {
+    background: #26354d;
+}
+
+html[data-theme="dark"] .barre-graphique-question span {
+    background: #4ade80;
+}
+
+html[data-theme="dark"] .tableau-statistiques th,
+html[data-theme="dark"] .tableau-statistiques td {
+    border-color: #26354d;
+}
+
+html[data-theme="dark"] .tableau-statistiques th {
+    background: #0f1a2d;
+    color: #dbeafe;
+}
+
+html[data-theme="dark"] .sous-titre-colonne {
+    color: #9fb0c7;
+}
+
 @media print {
     body {
         background: white;
@@ -673,9 +892,11 @@ html[data-theme="dark"] #statut-validation {
     }
 
     .note-sur-six {
-        border-left-color: #15803d;
-        background: #e8f5eb;
-        color: #14532d;
+        border-left-color: #2563eb;
+        background: #eff6ff;
+        color: #1e3a8a;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 
     .note-totale {
@@ -752,9 +973,9 @@ html[data-theme="dark"] #statut-validation {
     }
 
     html[data-theme="dark"] .note-sur-six {
-        border-left-color: #15803d !important;
-        background: #e8f5eb !important;
-        color: #14532d !important;
+        border-left-color: #2563eb !important;
+        background: #eff6ff !important;
+        color: #1e3a8a !important;
     }
 
     html[data-theme="dark"] .note-totale {
@@ -797,6 +1018,19 @@ html[data-theme="dark"] #statut-validation {
     .entete-ligne {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    .actions-entete {
+        justify-content: space-between;
+    }
+
+    .entete-statistiques {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .filtres-statistiques {
+        grid-template-columns: auto 1fr;
     }
 
     .details-correction {
