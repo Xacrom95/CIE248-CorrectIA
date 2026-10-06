@@ -19,8 +19,9 @@ const boutonValiderCorrection = document.getElementById("bouton-valider-correcti
 const statutValidation = document.getElementById("statut-validation");
 const boutonPdf = document.getElementById("bouton-pdf");
 const boutonReediter = document.getElementById("bouton-reediter");
+const boutonCorrection = document.getElementById("bouton-correction");
 const boutonStatistiques = document.getElementById("bouton-statistiques");
-const boutonRetourCorrection = document.getElementById("bouton-retour-correction");
+const boutonExporterStatistiques = document.getElementById("bouton-export-statistiques");
 const sectionFormulaire = document.getElementById("section-formulaire");
 const sectionStatistiques = document.getElementById("section-statistiques");
 const filtresStatistiques = document.getElementById("filtres-statistiques");
@@ -28,6 +29,11 @@ const selecteurClasse = document.getElementById("selecteur-classe");
 const selecteurEvaluation = document.getElementById("selecteur-evaluation");
 const contenuStatistiques = document.getElementById("contenu-statistiques");
 const erreurStatistiques = document.getElementById("erreur-statistiques");
+const dialogSuppression = document.getElementById("dialog-confirmation-suppression");
+const messageConfirmationSuppression = document.getElementById("message-confirmation-suppression");
+const erreurSuppression = document.getElementById("erreur-suppression");
+const boutonNonSuppression = document.getElementById("bouton-non-suppression");
+const boutonOuiSuppression = document.getElementById("bouton-oui-suppression");
 
 let intervalleTemps = null;
 let debutCorrection = null;
@@ -35,6 +41,9 @@ let controleurCorrection = null;
 let correctionCourante = null;
 let correctionValidee = false;
 let statistiquesDisponibles = [];
+let resultatEnAttenteSuppression = null;
+let evaluationStatistiquesCourante = null;
+let classeStatistiquesCourante = "";
 const preferenceThemeSysteme = window.matchMedia("(prefers-color-scheme: dark)");
 
 function appliquerTheme(theme) {
@@ -69,9 +78,21 @@ boutonValiderCorrection.addEventListener("click", validerCorrection);
 boutonPdf.addEventListener("click", exporterPdf);
 boutonReediter.addEventListener("click", autoriserModification);
 boutonStatistiques.addEventListener("click", afficherStatistiques);
-boutonRetourCorrection.addEventListener("click", revenirAuxCorrections);
+boutonCorrection.addEventListener("click", revenirAuxCorrections);
+boutonExporterStatistiques.addEventListener("click", exporterStatistiquesPdf);
 selecteurClasse.addEventListener("change", afficherEvaluationsClasse);
 selecteurEvaluation.addEventListener("change", afficherEvaluationSelectionnee);
+contenuStatistiques.addEventListener("click", (evenement) => {
+    const boutonSuppression = evenement.target.closest(".bouton-supprimer-resultat");
+    if (boutonSuppression) {
+        demanderSuppressionResultat(Number(boutonSuppression.dataset.studentIndex));
+    }
+});
+boutonNonSuppression.addEventListener("click", () => dialogSuppression.close());
+boutonOuiSuppression.addEventListener("click", supprimerResultatConfirme);
+dialogSuppression.addEventListener("close", () => {
+    resultatEnAttenteSuppression = null;
+});
 boutonTheme.addEventListener("click", () => {
     const prochainTheme = { light: "dark", dark: "system", system: "light" }[
         boutonTheme.dataset.theme
@@ -611,6 +632,7 @@ function afficherEvaluationsClasse() {
     const classe = statistiquesDisponibles.find(element => element.classe === selecteurClasse.value);
     if (!classe?.evaluations.length) {
         selecteurEvaluation.innerHTML = "";
+        boutonExporterStatistiques.disabled = true;
         contenuStatistiques.innerHTML = '<p class="etat-statistiques">Aucune évaluation enregistrée pour cette classe.</p>';
         return;
     }
@@ -625,12 +647,19 @@ function afficherEvaluationSelectionnee() {
     const classe = statistiquesDisponibles.find(element => element.classe === selecteurClasse.value);
     const evaluation = classe?.evaluations[Number(selecteurEvaluation.value)];
     if (!evaluation) {
+        evaluationStatistiquesCourante = null;
+        classeStatistiquesCourante = "";
+        boutonExporterStatistiques.disabled = true;
         contenuStatistiques.innerHTML = '<p class="etat-statistiques">Sélectionnez une évaluation.</p>';
         return;
     }
 
+    evaluationStatistiquesCourante = evaluation;
+    classeStatistiquesCourante = classe.classe;
+    boutonExporterStatistiques.disabled = false;
     const questions = evaluation.questions || [];
     contenuStatistiques.innerHTML = `
+        <p class="titre-impression-statistiques">Classe ${echapperHtml(classe.classe)} · ${echapperHtml(evaluation.evaluation)} · ${echapperHtml(evaluation.date)}</p>
         <div class="resume-evaluation">
             <span>${evaluation.nombre_eleves} élève${evaluation.nombre_eleves > 1 ? "s" : ""}</span>
             <span>Moyenne : ${formaterNombre(evaluation.moyenne_sur_six)} / 6</span>
@@ -657,10 +686,10 @@ function afficherEvaluationSelectionnee() {
                 <thead><tr>
                     <th scope="col">Nom</th><th scope="col">Prénom</th>
                     ${questions.map(question => `<th scope="col" title="${echapperAttribut(question.intitule)}">Q${question.numero}<span class="sous-titre-colonne">/${formaterNombre(question.points_max)}</span></th>`).join("")}
-                    <th scope="col">Total</th><th scope="col">Note / 6</th>
+                    <th scope="col">Total</th><th scope="col">Note / 6</th><th scope="col">Action</th>
                 </tr></thead>
                 <tbody>
-                    ${evaluation.eleves.map(eleve => `
+                    ${evaluation.eleves.map((eleve, index) => `
                         <tr>
                             <td>${echapperHtml(eleve.nom)}</td><td>${echapperHtml(eleve.prenom)}</td>
                             ${questions.map(question => {
@@ -669,6 +698,7 @@ function afficherEvaluationSelectionnee() {
                             }).join("")}
                             <td>${formaterNombre(eleve.points)} / ${formaterNombre(eleve.points_max)}</td>
                             <td>${formaterNombre(eleve.note_sur_six)} / 6</td>
+                            <td><button class="bouton-supprimer-resultat" type="button" data-student-index="${index}" aria-label="Supprimer le résultat de ${echapperAttribut(eleve.prenom)} ${echapperAttribut(eleve.nom)}">Supprimer</button></td>
                         </tr>
                     `).join("")}
                 </tbody>
@@ -679,6 +709,25 @@ function afficherEvaluationSelectionnee() {
 
 function formaterNombre(valeur) {
     return Number(valeur).toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+}
+
+function exporterStatistiquesPdf() {
+    const classe = statistiquesDisponibles.find(element => element.classe === selecteurClasse.value);
+    const evaluation = classe?.evaluations[Number(selecteurEvaluation.value)];
+    if (!classe || !evaluation) {
+        return;
+    }
+
+    const titreOriginal = document.title;
+    document.title = ["Statistiques", classe.classe, evaluation.evaluation, evaluation.date]
+        .map(nettoyerSegmentNomFichier)
+        .join("_");
+    document.body.dataset.printView = "statistiques";
+    window.addEventListener("afterprint", () => {
+        document.title = titreOriginal;
+        delete document.body.dataset.printView;
+    }, { once: true });
+    window.print();
 }
 
 function revenirAuxCorrections() {
