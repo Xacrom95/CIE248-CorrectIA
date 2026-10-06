@@ -42,7 +42,10 @@ def extraire_document(document: str, prefixe_reponse: str = "") -> list[dict]:
     blocs = []
     index = 0
     numero_suivant = 1
-    marqueur_reponse = re.compile(re.escape(prefixe_reponse), re.IGNORECASE)
+    marqueur_reponse = re.compile(
+        r"\b(?:réponse\s+attendue|réponse)\s*[:：]?\s*",
+        re.IGNORECASE,
+    )
 
     while index < len(lignes):
         ligne = lignes[index]
@@ -102,7 +105,8 @@ def extraire_document(document: str, prefixe_reponse: str = "") -> list[dict]:
         blocs.append({
             "numero": numero,
             "intitule": intitule,
-            "reponse": " ".join(reponse_lignes).strip() or "Aucune réponse fournie.",
+            "reponse": _retirer_bareme_reponse(" ".join(reponse_lignes))
+            or "Aucune réponse fournie.",
             "note_maximale": maximum
         })
         numero_suivant = numero + 1
@@ -240,6 +244,12 @@ def _reunir_baremes_multilignes(document: str) -> str:
     )
 
 
+def _retirer_bareme_reponse(texte: str) -> str:
+    reponse = re.split(r"\bbar[èe]me\b", texte, maxsplit=1, flags=re.IGNORECASE)[0]
+    reponse = re.sub(r"^\s*réponse(?:\s+attendue)?\s*[:：]?\s*", "", reponse, flags=re.IGNORECASE)
+    return reponse.strip()
+
+
 def _extraire_bareme(texte: str) -> float:
     correspondance = re.search(r"\(\s*(\d+(?:[.,]\d+)?)\s+points?\s*\)", texte, re.IGNORECASE)
     return float(correspondance.group(1).replace(",", ".")) if correspondance else 1.0
@@ -286,6 +296,17 @@ def appliquer_reponses_essentielles(correction: dict) -> None:
                 "La notion principale est maîtrisée : l'élève donne le "
                 "développement correct de l'acronyme."
             )
+
+
+def retirer_fragments_grammaticaux(correction: dict) -> None:
+    """Retire les amorces grammaticales isolées des arguments manquants."""
+    for question in correction["questions"]:
+        elements = question.get("elements_manquants_ou_incorrects", [])
+        question["elements_manquants_ou_incorrects"] = [
+            element
+            for element in elements
+            if _normaliser_jeton(" ".join(re.findall(r"\w+", element, re.UNICODE))) != "c est"
+        ]
 
 
 def construire_prompt(
@@ -352,6 +373,7 @@ Règles obligatoires :
 - Si aucune réponse n'est présente, utilise une chaîne vide pour reponse_eleve.
 - Les éléments corrects doivent uniquement contenir les informations réellement présentes dans la réponse de l'élève.
 - Les éléments manquants doivent uniquement contenir les informations attendues dans le corrigé mais absentes de la réponse.
+- Ne signale pas comme élément manquant un simple mot introductif ou grammatical (par exemple « C'est ») lorsque l'idée attendue est déjà exprimée.
 - Le nom et le prénom de l'élève ne doivent pas être pris en compte pour la correction des questions.
 
 CORRIGÉ COMPLET :
@@ -695,6 +717,7 @@ def corriger_copie(
         copie_eleve=copie_eleve
     )
 
+    retirer_fragments_grammaticaux(correction)
     appliquer_reponses_essentielles(correction)
 
     valider_correction(
