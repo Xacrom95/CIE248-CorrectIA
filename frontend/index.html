@@ -57,9 +57,23 @@
         <section id="resultat" class="resultat cache" aria-live="polite">
             <h2>Proposition de correction</h2>
             <div id="contenu-resultat"></div>
-            <button id="bouton-nouvelle-correction" type="button" class="bouton-secondaire">
-                Nouvelle correction
-            </button>
+            <div class="zone-validation">
+                <button id="bouton-valider-correction" type="button" disabled>
+                    Valider la correction
+                </button>
+                <p id="statut-validation" role="status" aria-live="polite"></p>
+            </div>
+            <div class="actions-resultat">
+                <button id="bouton-pdf" type="button" disabled>
+                    Exporter en PDF
+                </button>
+                <button id="bouton-reediter" type="button" class="bouton-secondaire cache">
+                    Modifier la correction
+                </button>
+                <button id="bouton-nouvelle-correction" type="button" class="bouton-secondaire">
+                    Nouvelle correction
+                </button>
+            </div>
         </section>
     </main>
 
