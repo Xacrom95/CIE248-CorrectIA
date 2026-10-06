@@ -1,6 +1,8 @@
 import json
 import os
 import re
+import unicodedata
+from difflib import SequenceMatcher
 import urllib.error
 import urllib.request
 
@@ -14,6 +16,7 @@ OLLAMA_MODEL = os.getenv(
     "OLLAMA_MODEL",
     "llama3.1:8b"
 )
+DEBUT_QUESTION = re.compile(r"^\s*(?:question\s+)?(\d+)[.):]\s+(.*)$", re.IGNORECASE)
 
 
 def extraire_questions(corrige: str) -> list[tuple[int, str]]:
@@ -31,7 +34,90 @@ def extraire_questions(corrige: str) -> list[tuple[int, str]]:
 
 
 def extraire_document(document: str, prefixe_reponse: str = "") -> list[dict]:
-    """Extrait chaque question et la réponse qui la suit dans un document texte."""
+    """Extrait les questions multilignes et les réponses du corrigé."""
+    document = _reunir_baremes_multilignes(document)
+    if not prefixe_reponse:
+        return extraire_document_legacy(document)
+
+    lignes = [ligne.strip() for ligne in document.splitlines()]
+    blocs = []
+    index = 0
+    numero_suivant = 1
+    marqueur_reponse = re.compile(
+        r"\b(?:réponse\s+attendue|réponse)\s*[:：]?\s*",
+        re.IGNORECASE,
+    )
+
+    while index < len(lignes):
+        ligne = lignes[index]
+        numero_match = DEBUT_QUESTION.match(ligne)
+        intitule = numero_match.group(2) if numero_match else ligne
+        if ("?" not in intitule and not numero_match) or ligne.lower().startswith(("nom", "prénom", "questions")):
+            index += 1
+            continue
+
+        numero = int(numero_match.group(1)) if numero_match else numero_suivant
+        intitule_lignes = [intitule]
+        reponse_lignes = []
+        reponse_trouvee = False
+        index += 1
+
+        while index < len(lignes):
+            suivante = lignes[index]
+            marqueur = marqueur_reponse.search(suivante)
+            if marqueur:
+                avant_marqueur = suivante[:marqueur.start()].strip()
+                apres_marqueur = suivante[marqueur.end():].strip()
+                if avant_marqueur:
+                    intitule_lignes.append(avant_marqueur)
+                if apres_marqueur:
+                    reponse_lignes.append(apres_marqueur)
+                index += 1
+                reponse_trouvee = True
+                break
+
+            if DEBUT_QUESTION.match(suivante):
+                break
+
+            if "?" in suivante and any("?" in morceau for morceau in intitule_lignes):
+                break
+
+            intitule_lignes.append(suivante)
+            index += 1
+
+        if not reponse_trouvee:
+            return extraire_document_legacy(document)
+
+        while index < len(lignes):
+            suivante = lignes[index]
+            if DEBUT_QUESTION.match(suivante):
+                break
+            if "?" in suivante:
+                break
+            if suivante:
+                reponse_lignes.append(suivante)
+            index += 1
+
+        intitule = " ".join(intitule_lignes).strip()
+        points_match = re.search(r"\(\s*(\d+(?:[.,]\d+)?)\s+points?\s*\)", intitule, re.IGNORECASE)
+        maximum = float(points_match.group(1).replace(",", ".")) if points_match else 1.0
+        intitule = re.sub(r"\s*\(\s*\d+(?:[.,]\d+)?\s+points?\s*\)\s*$", "", intitule, flags=re.IGNORECASE).strip()
+
+        blocs.append({
+            "numero": numero,
+            "intitule": intitule,
+            "reponse": _retirer_bareme_reponse(" ".join(reponse_lignes))
+            or "Aucune réponse fournie.",
+            "note_maximale": maximum
+        })
+        numero_suivant = numero + 1
+
+    return blocs
+
+
+def extraire_document_legacy(document: str) -> list[dict]:
+    """Fallback pour les copies non numérotées ou sans intitulés répétés."""
+    document = _reunir_baremes_multilignes(document)
     lignes = [ligne.strip() for ligne in document.splitlines()]
     blocs = []
     index = 0
@@ -39,16 +125,14 @@ def extraire_document(document: str, prefixe_reponse: str = "") -> list[dict]:
 
     while index < len(lignes):
         ligne = lignes[index]
-        numero_match = re.match(r"^(\d+)[.)]\s+(.*)$", ligne)
+        numero_match = DEBUT_QUESTION.match(ligne)
         intitule = numero_match.group(2) if numero_match else ligne
         if "?" not in intitule or ligne.lower().startswith(("nom", "prénom", "questions")):
             index += 1
             continue
 
         numero = int(numero_match.group(1)) if numero_match else numero_suivant
-        points_match = re.search(r"\(\s*(\d+(?:[.,]\d+)?)\s+points?\s*\)", ligne, re.IGNORECASE)
-        maximum = float(points_match.group(1).replace(",", ".")) if points_match else 1.0
-        intitule = re.sub(r"\s*\(\s*\d+(?:[.,]\d+)?\s+points?\s*\)\s*$", "", intitule, flags=re.IGNORECASE).strip()
+        maximum = _extraire_bareme(ligne)
         index += 1
         reponse_lignes = []
 
@@ -60,14 +144,11 @@ def extraire_document(document: str, prefixe_reponse: str = "") -> list[dict]:
                 reponse_lignes.append(suivante)
             index += 1
 
-        reponse = " ".join(reponse_lignes).strip()
-        if prefixe_reponse and reponse.lower().startswith(prefixe_reponse.lower()):
-            reponse = reponse[len(prefixe_reponse):].strip()
-
+        intitule = _retirer_bareme(intitule)
         blocs.append({
             "numero": numero,
             "intitule": intitule,
-            "reponse": reponse or "Aucune réponse fournie.",
+            "reponse": " ".join(reponse_lignes).strip() or "Aucune réponse fournie.",
             "note_maximale": maximum
         })
         numero_suivant = numero + 1
@@ -75,10 +156,218 @@ def extraire_document(document: str, prefixe_reponse: str = "") -> list[dict]:
     return blocs
 
 
+def extraire_reponses_eleve(copie_eleve: str, corriges: list[dict]) -> dict[int, dict]:
+    """Retire les intitulés répétés des blocs numérotés de la copie élève."""
+    copie_eleve = _reunir_baremes_multilignes(copie_eleve)
+    numeros_attendus = {question["numero"] for question in corriges}
+    blocs_lignes = {}
+    numero_courant = None
+
+    for ligne in copie_eleve.splitlines():
+        numero_match = DEBUT_QUESTION.match(ligne)
+        if numero_match and int(numero_match.group(1)) in numeros_attendus:
+            numero_courant = int(numero_match.group(1))
+            blocs_lignes[numero_courant] = [numero_match.group(2).strip()]
+        elif numero_courant is not None:
+            blocs_lignes[numero_courant].append(ligne.strip())
+
+    if not blocs_lignes:
+        return {
+            bloc["numero"]: bloc
+            for bloc in extraire_document_legacy(copie_eleve)
+        }
+
+    reponses = {}
+    for question in corriges:
+        numero = question["numero"]
+        lignes = blocs_lignes.get(numero)
+        if lignes is None:
+            continue
+
+        contenu_reponse = _retirer_intitule_question(lignes, question["intitule"])
+        reponses[numero] = {
+            "numero": numero,
+            "reponse": " ".join(ligne for ligne in contenu_reponse if ligne).strip()
+            or "Aucune réponse fournie."
+        }
+
+    return reponses
+
+
+def valider_correspondance_documents(corrige: str, copie_eleve: str) -> None:
+    """Refuse de corriger lorsque les questions des deux documents divergent."""
+    questions_corrige = extraire_document(corrige, "Réponse :")
+    if not questions_corrige:
+        raise ValueError(
+            "Aucune question exploitable n'a été trouvée dans le corrigé. "
+            "Vérifiez que chaque question est suivie de sa réponse attendue."
+        )
+
+    questions_copie = _extraire_intitules_copie(copie_eleve)
+    if not questions_copie:
+        raise ValueError(
+            "Impossible de comparer la copie au corrigé : aucun intitulé de question "
+            "n'a été trouvé dans la copie. Ajoutez les questions numérotées à la copie."
+        )
+
+    numeros_corrige = {question["numero"] for question in questions_corrige}
+    numeros_copie = set(questions_copie)
+    if numeros_corrige != numeros_copie:
+        manquants = sorted(numeros_corrige - numeros_copie)
+        supplementaires = sorted(numeros_copie - numeros_corrige)
+        details = []
+        if manquants:
+            details.append(f"questions absentes de la copie : {', '.join(map(str, manquants))}")
+        if supplementaires:
+            details.append(f"questions absentes du corrigé : {', '.join(map(str, supplementaires))}")
+        raise ValueError("Le corrigé et la copie ne contiennent pas les mêmes questions (" + "; ".join(details) + ").")
+
+    divergences = []
+    for question in questions_corrige:
+        numero = question["numero"]
+        jetons_corrige = _jetons_intitule(question["intitule"])
+        jetons_copie = _jetons_intitule(questions_copie[numero])
+        if not jetons_corrige or not jetons_copie:
+            divergences.append(numero)
+            continue
+
+        fenetre_copie = jetons_copie[:len(jetons_corrige)]
+        similarite = SequenceMatcher(None, jetons_corrige, fenetre_copie).ratio()
+        seuil = max(0.75, 1 - 1.5 / len(jetons_corrige))
+        if similarite < seuil:
+            divergences.append(numero)
+
+    if divergences:
+        liste = ", ".join(map(str, divergences))
+        raise ValueError(
+            f"Le corrigé et la copie semblent porter sur des questions différentes "
+            f"(question(s) {liste}). Vérifiez les deux documents avant de corriger."
+        )
+
+
+def _extraire_intitules_copie(copie_eleve: str) -> dict[int, str]:
+    blocs = {}
+    numero_courant = None
+    for ligne in copie_eleve.splitlines():
+        correspondance = DEBUT_QUESTION.match(ligne)
+        if correspondance:
+            numero_courant = int(correspondance.group(1))
+            blocs.setdefault(numero_courant, []).append(correspondance.group(2).strip())
+        elif numero_courant is not None:
+            blocs[numero_courant].append(ligne.strip())
+
+    if blocs:
+        intitules = {}
+        for numero, lignes in blocs.items():
+            texte = " ".join(ligne for ligne in lignes if ligne)
+            intitules[numero] = texte.split("?", 1)[0] + ("?" if "?" in texte else "")
+        return intitules
+
+    blocs_legacy = extraire_document_legacy(copie_eleve)
+    return {bloc["numero"]: bloc["intitule"] for bloc in blocs_legacy}
+
+
+def _jetons_intitule(intitule: str) -> list[str]:
+    intitule = _retirer_bareme(intitule)
+    intitule = re.sub(r"^\s*(?:question\s+)?\d+[.):]?\s*", "", intitule, flags=re.IGNORECASE)
+    return [_normaliser_jeton(jeton) for jeton in re.findall(r"\w+", intitule, re.UNICODE)]
+
+
+def _retirer_intitule_question(lignes: list[str], intitule: str) -> list[str]:
+    jetons_question = [
+        _normaliser_jeton(jeton)
+        for jeton in re.findall(r"\w+", intitule, re.UNICODE)
+    ]
+    jetons_copie = []
+    for index, ligne in enumerate(lignes):
+        jetons_copie.extend(
+            (index, correspondance.start(), correspondance.end(), _normaliser_jeton(correspondance.group()))
+            for correspondance in re.finditer(r"\w+", ligne, re.UNICODE)
+        )
+
+    correspondance_complete = (
+        len(jetons_copie) >= len(jetons_question)
+        and [jeton[3] for jeton in jetons_copie[:len(jetons_question)]] == jetons_question
+    )
+    if correspondance_complete and jetons_question:
+        index_ligne, _, fin_jeton = jetons_copie[len(jetons_question) - 1][:3]
+        suffixe = re.sub(
+            r"^\s*(?:[?!.»”’\"']\s*)*(?:\(\s*\d+(?:[.,]\d+)?\s+points?\s*\))?\s*",
+            "",
+            lignes[index_ligne][fin_jeton:],
+            flags=re.IGNORECASE,
+        )
+        return _retirer_bareme_debut_reponse(
+            ([suffixe] if suffixe else []) + lignes[index_ligne + 1:]
+        )
+
+    for index, ligne in enumerate(lignes):
+        if "?" in ligne:
+            suffixe = ligne.split("?", 1)[1].strip()
+            return _retirer_bareme_debut_reponse(
+                ([suffixe] if suffixe else []) + lignes[index + 1:]
+            )
+
+    separateur_vide = next((index for index, ligne in enumerate(lignes) if not ligne), None)
+    if separateur_vide is not None:
+        return _retirer_bareme_debut_reponse(lignes[separateur_vide + 1:])
+    return _retirer_bareme_debut_reponse(lignes[1:])
+
+
+def _retirer_bareme_debut_reponse(lignes: list[str]) -> list[str]:
+    resultat = list(lignes)
+    motif_bareme = re.compile(
+        r"^\s*[\(\[]\s*\d+(?:[.,]\d+)?\s*(?:points?|pts?)\s*[\)\]]\s*",
+        re.IGNORECASE,
+    )
+
+    for index, ligne in enumerate(resultat):
+        if not ligne.strip():
+            continue
+        ligne_nettoyee = motif_bareme.sub("", ligne, count=1)
+        if ligne_nettoyee != ligne:
+            if ligne_nettoyee.strip():
+                resultat[index] = ligne_nettoyee
+            else:
+                resultat.pop(index)
+        break
+
+    return resultat
+
+
+def _normaliser_jeton(jeton: str) -> str:
+    decomposes = unicodedata.normalize("NFKD", jeton.casefold())
+    return "".join(caractere for caractere in decomposes if not unicodedata.combining(caractere))
+
+
+def _reunir_baremes_multilignes(document: str) -> str:
+    return re.sub(
+        r"\(\s*(\d+(?:[.,]\d+)?)\s*\r?\n\s*(points?)\s*\)",
+        r"(\1 \2)",
+        document,
+        flags=re.IGNORECASE,
+    )
+
+
+def _retirer_bareme_reponse(texte: str) -> str:
+    reponse = re.split(r"\bbar[èe]me\b", texte, maxsplit=1, flags=re.IGNORECASE)[0]
+    reponse = re.sub(r"^\s*réponse(?:\s+attendue)?\s*[:：]?\s*", "", reponse, flags=re.IGNORECASE)
+    return reponse.strip()
+
+
+def _extraire_bareme(texte: str) -> float:
+    correspondance = re.search(r"\(\s*(\d+(?:[.,]\d+)?)\s+points?\s*\)", texte, re.IGNORECASE)
+    return float(correspondance.group(1).replace(",", ".")) if correspondance else 1.0
+
+
+def _retirer_bareme(texte: str) -> str:
+    return re.sub(r"\s*\(\s*\d+(?:[.,]\d+)?\s+points?\s*\)\s*$", "", texte, flags=re.IGNORECASE).strip()
+
+
 def normaliser_donnees_source(correction: dict, corrige: str, copie_eleve: str) -> None:
     """Remplace les textes générés par les textes exacts des documents sélectionnés."""
     corriges = extraire_document(corrige, "Réponse :")
-    copies = {bloc["numero"]: bloc for bloc in extraire_document(copie_eleve)}
+    copies = extraire_reponses_eleve(copie_eleve, corriges)
 
     for index, question in enumerate(correction["questions"]):
         if index >= len(corriges):
@@ -112,6 +401,17 @@ def appliquer_reponses_essentielles(correction: dict) -> None:
                 "La notion principale est maîtrisée : l'élève donne le "
                 "développement correct de l'acronyme."
             )
+
+
+def retirer_fragments_grammaticaux(correction: dict) -> None:
+    """Retire les amorces grammaticales isolées des arguments manquants."""
+    for question in correction["questions"]:
+        elements = question.get("elements_manquants_ou_incorrects", [])
+        question["elements_manquants_ou_incorrects"] = [
+            element
+            for element in elements
+            if _normaliser_jeton(" ".join(re.findall(r"\w+", element, re.UNICODE))) != "c est"
+        ]
 
 
 def construire_prompt(
@@ -178,6 +478,7 @@ Règles obligatoires :
 - Si aucune réponse n'est présente, utilise une chaîne vide pour reponse_eleve.
 - Les éléments corrects doivent uniquement contenir les informations réellement présentes dans la réponse de l'élève.
 - Les éléments manquants doivent uniquement contenir les informations attendues dans le corrigé mais absentes de la réponse.
+- Ne signale pas comme élément manquant un simple mot introductif ou grammatical (par exemple « C'est ») lorsque l'idée attendue est déjà exprimée.
 - Le nom et le prénom de l'élève ne doivent pas être pris en compte pour la correction des questions.
 
 CORRIGÉ COMPLET :
@@ -506,6 +807,8 @@ def corriger_copie(
             "La copie de l'élève ne peut pas être vide."
         )
 
+    valider_correspondance_documents(corrige, copie_eleve)
+
     prompt = construire_prompt(
         corrige=corrige,
         copie_eleve=copie_eleve
@@ -521,6 +824,7 @@ def corriger_copie(
         copie_eleve=copie_eleve
     )
 
+    retirer_fragments_grammaticaux(correction)
     appliquer_reponses_essentielles(correction)
 
     valider_correction(

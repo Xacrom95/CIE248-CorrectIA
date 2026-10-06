@@ -1,5 +1,6 @@
-const API_URL = "http://127.0.0.1:8000/correction";
-const TAILLE_MAXIMALE = 2 * 1024 * 1024;
+const API_URL = "http://127.0.0.1:8000/correction/fichiers";
+const API_STATISTIQUES_URL = "http://127.0.0.1:8000/statistiques";
+const TAILLE_MAXIMALE = 10 * 1024 * 1024;
 
 const champCorrige = document.getElementById("corrige");
 const champCopie = document.getElementById("copie");
@@ -18,32 +19,116 @@ const boutonValiderCorrection = document.getElementById("bouton-valider-correcti
 const statutValidation = document.getElementById("statut-validation");
 const boutonPdf = document.getElementById("bouton-pdf");
 const boutonReediter = document.getElementById("bouton-reediter");
+const boutonCorrection = document.getElementById("bouton-correction");
+const boutonStatistiques = document.getElementById("bouton-statistiques");
+const boutonExporterStatistiques = document.getElementById("bouton-export-statistiques");
+const sectionFormulaire = document.getElementById("section-formulaire");
+const sectionStatistiques = document.getElementById("section-statistiques");
+const filtresStatistiques = document.getElementById("filtres-statistiques");
+const selecteurClasse = document.getElementById("selecteur-classe");
+const selecteurEvaluation = document.getElementById("selecteur-evaluation");
+const contenuStatistiques = document.getElementById("contenu-statistiques");
+const erreurStatistiques = document.getElementById("erreur-statistiques");
+const dialogSuppression = document.getElementById("dialog-confirmation-suppression");
+const messageConfirmationSuppression = document.getElementById("message-confirmation-suppression");
+const erreurSuppression = document.getElementById("erreur-suppression");
+const boutonNonSuppression = document.getElementById("bouton-non-suppression");
+const boutonOuiSuppression = document.getElementById("bouton-oui-suppression");
 
 let intervalleTemps = null;
 let debutCorrection = null;
 let controleurCorrection = null;
 let correctionCourante = null;
 let correctionValidee = false;
+let statistiquesDisponibles = [];
+let resultatEnAttenteSuppression = null;
+let evaluationStatistiquesCourante = null;
+let classeStatistiquesCourante = "";
+const elevesExclusStatistiques = new Set();
+const preferenceThemeSysteme = window.matchMedia("(prefers-color-scheme: dark)");
 
 function appliquerTheme(theme) {
-    const nocturne = theme === "dark";
+    const themeChoisi = ["light", "dark", "system"].includes(theme)
+        ? theme
+        : "system";
+    const nocturne = themeChoisi === "dark" || (
+        themeChoisi === "system" && preferenceThemeSysteme.matches
+    );
     document.documentElement.dataset.theme = nocturne ? "dark" : "light";
-    boutonTheme.textContent = nocturne ? "Mode diurne" : "Mode nocturne";
-    boutonTheme.setAttribute("aria-label", nocturne ? "Activer le mode diurne" : "Activer le mode nocturne");
-    localStorage.setItem("correctia-theme", nocturne ? "dark" : "light");
+    const prochainTheme = { light: "dark", dark: "system", system: "light" }[themeChoisi];
+    const nomTheme = { light: "clair", dark: "sombre", system: "système" }[themeChoisi];
+    const nomProchainTheme = { light: "clair", dark: "sombre", system: "système" }[prochainTheme];
+    boutonTheme.dataset.theme = themeChoisi;
+    boutonTheme.setAttribute("aria-label", `Thème ${nomTheme}. Passer au mode ${nomProchainTheme}.`);
+    boutonTheme.title = `Thème ${nomTheme}. Cliquer pour passer au mode ${nomProchainTheme}.`;
+    localStorage.setItem("correctia-theme", themeChoisi);
 }
 
-appliquerTheme(localStorage.getItem("correctia-theme") || "light");
+appliquerTheme(localStorage.getItem("correctia-theme") || "system");
+preferenceThemeSysteme.addEventListener("change", () => {
+    if (boutonTheme.dataset.theme === "system") {
+        appliquerTheme("system");
+    }
+});
 
 champCorrige.addEventListener("change", () => afficherNomFichier(champCorrige, nomCorrige));
 champCopie.addEventListener("change", () => afficherNomFichier(champCopie, nomCopie));
 boutonCorriger.addEventListener("click", corrigerCopie);
 boutonAnnuler.addEventListener("click", () => controleurCorrection?.abort());
 boutonValiderCorrection.addEventListener("click", validerCorrection);
-boutonPdf.addEventListener("click", () => window.print());
+boutonPdf.addEventListener("click", exporterPdf);
 boutonReediter.addEventListener("click", autoriserModification);
+boutonStatistiques.addEventListener("click", afficherStatistiques);
+boutonCorrection.addEventListener("click", revenirAuxCorrections);
+boutonExporterStatistiques.addEventListener("click", exporterStatistiquesPdf);
+selecteurClasse.addEventListener("change", afficherEvaluationsClasse);
+selecteurEvaluation.addEventListener("change", afficherEvaluationSelectionnee);
+contenuStatistiques.addEventListener("click", (evenement) => {
+    if (evenement.target.closest(".bouton-reinitialiser-eleves")) {
+        if (evaluationStatistiquesCourante) {
+            evaluationStatistiquesCourante.eleves.forEach(eleve => {
+                elevesExclusStatistiques.delete(
+                    cleEleveStatistiques(
+                        classeStatistiquesCourante,
+                        evaluationStatistiquesCourante,
+                        eleve
+                    )
+                );
+            });
+            afficherEvaluationSelectionnee();
+        }
+        return;
+    }
+
+    const boutonSuppression = evenement.target.closest(".bouton-supprimer-resultat");
+    if (boutonSuppression) {
+        demanderSuppressionResultat(Number(boutonSuppression.dataset.studentIndex));
+    }
+});
+contenuStatistiques.addEventListener("change", (evenement) => {
+    const caseEleve = evenement.target.closest(".case-inclusion-eleve");
+    if (!caseEleve) {
+        return;
+    }
+
+    const cleEleve = caseEleve.dataset.studentKey;
+    if (caseEleve.checked) {
+        elevesExclusStatistiques.delete(cleEleve);
+    } else {
+        elevesExclusStatistiques.add(cleEleve);
+    }
+    afficherEvaluationSelectionnee();
+});
+boutonNonSuppression.addEventListener("click", () => dialogSuppression.close());
+boutonOuiSuppression.addEventListener("click", supprimerResultatConfirme);
+dialogSuppression.addEventListener("close", () => {
+    resultatEnAttenteSuppression = null;
+});
 boutonTheme.addEventListener("click", () => {
-    appliquerTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+    const prochainTheme = { light: "dark", dark: "system", system: "light" }[
+        boutonTheme.dataset.theme
+    ];
+    appliquerTheme(prochainTheme);
 });
 boutonNouvelleCorrection.addEventListener("click", reinitialiserInterface);
 contenuResultat.addEventListener("input", mettreAJourCorrection);
@@ -63,8 +148,9 @@ function verifierFichier(fichier, libelle) {
         throw new Error(`Veuillez sélectionner ${libelle}.`);
     }
 
-    if (!fichier.name.toLowerCase().endsWith(".txt")) {
-        throw new Error(`${libelle} doit être au format .txt.`);
+    const extension = fichier.name.split(".").pop().toLowerCase();
+    if (!["txt", "pdf", "docx"].includes(extension)) {
+        throw new Error(`${libelle} doit être au format .txt, .pdf ou .docx.`);
     }
 
     if (fichier.size === 0) {
@@ -72,18 +158,8 @@ function verifierFichier(fichier, libelle) {
     }
 
     if (fichier.size > TAILLE_MAXIMALE) {
-        throw new Error(`${libelle} dépasse la taille maximale de 2 Mo.`);
+        throw new Error(`${libelle} dépasse la taille maximale de 10 Mo.`);
     }
-}
-
-async function lireFichierTexte(fichier) {
-    const contenu = await fichier.text();
-
-    if (!contenu.trim()) {
-        throw new Error(`Le fichier ${fichier.name} ne contient aucun texte exploitable.`);
-    }
-
-    return contenu;
 }
 
 async function corrigerCopie() {
@@ -100,21 +176,14 @@ async function corrigerCopie() {
         activerChargement();
         controleurCorrection = new AbortController();
 
-        const [corrige, copieEleve] = await Promise.all([
-            lireFichierTexte(fichierCorrige),
-            lireFichierTexte(fichierCopie)
-        ]);
+        const fichiers = new FormData();
+        fichiers.append("corrige", fichierCorrige);
+        fichiers.append("copie_eleve", fichierCopie);
 
         const reponse = await fetch(API_URL, {
             method: "POST",
             signal: controleurCorrection.signal,
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                corrige: corrige,
-                copie_eleve: copieEleve
-            })
+            body: fichiers
         });
 
         let donnees;
@@ -133,7 +202,7 @@ async function corrigerCopie() {
             throw new Error(detail || `Erreur HTTP ${reponse.status}`);
         }
 
-        afficherCorrection(donnees);
+        afficherCorrection(donnees, donnees.identite_eleve || "");
     } catch (erreur) {
         console.error(erreur);
 
@@ -209,8 +278,9 @@ function reinitialiserInterface() {
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function afficherCorrection(correction) {
+function afficherCorrection(correction, texteCopieEleve = "") {
     correctionCourante = structuredClone(correction);
+    const identiteEleve = extraireIdentite(texteCopieEleve);
     const questions = Array.isArray(correctionCourante.questions)
         ? correctionCourante.questions
         : [];
@@ -303,21 +373,29 @@ function afficherCorrection(correction) {
         <div class="identite-eleve">
             <label class="champ-identite" for="nom-eleve">
                 Nom
-                <input id="nom-eleve" type="text" autocomplete="family-name" data-editable="true">
+                <input id="nom-eleve" type="text" autocomplete="family-name" data-editable="true" value="${echapperAttribut(identiteEleve.nom)}">
             </label>
             <label class="champ-identite" for="prenom-eleve">
                 Prénom
-                <input id="prenom-eleve" type="text" autocomplete="given-name" data-editable="true">
+                <input id="prenom-eleve" type="text" autocomplete="given-name" data-editable="true" value="${echapperAttribut(identiteEleve.prenom)}">
+            </label>
+            <label class="champ-identite" for="classe-eleve">
+                Classe
+                <input id="classe-eleve" type="text" data-editable="true" value="${echapperAttribut(identiteEleve.classe)}">
+            </label>
+            <label class="champ-identite" for="date-eleve">
+                Date
+                <input id="date-eleve" type="text" data-editable="true" value="${echapperAttribut(identiteEleve.date)}">
             </label>
         </div>
 
+        <p class="note-sur-six">
+            Note : <strong id="note-sur-six-valeur">${calculerNoteSurSix(correctionCourante.note_totale_proposee, correctionCourante.note_totale_maximale)}</strong> / 6
+        </p>
         <p class="note-totale">
             Points attribués :
             <span id="note-totale-valeur">${echapperHtml(correctionCourante.note_totale_proposee)}</span> /
             ${echapperHtml(correctionCourante.note_totale_maximale)}
-        </p>
-        <p class="note-sur-six">
-            Note sur 6 : <strong id="note-sur-six-valeur">${calculerNoteSurSix(correctionCourante.note_totale_proposee, correctionCourante.note_totale_maximale)}</strong> / 6
         </p>
 
         ${htmlQuestions}
@@ -411,7 +489,7 @@ function actualiserCommentaireImpression(champ) {
     champ.closest(".champ-texte")?.classList.toggle("masquer-impression", contientRecommandation);
 }
 
-function validerCorrection() {
+async function validerCorrection() {
     if (!correctionCourante || !toutesQuestionsValidees()) {
         return;
     }
@@ -423,8 +501,58 @@ function validerCorrection() {
         return;
     }
 
-    correctionValidee = true;
-    actualiserEtatValidation();
+    const nomEleve = document.getElementById("nom-eleve").value.trim();
+    const prenomEleve = document.getElementById("prenom-eleve").value.trim();
+    const classeEleve = document.getElementById("classe-eleve").value.trim();
+    const fichierCorrige = champCorrige.files[0];
+
+    if (!nomEleve || !prenomEleve || !classeEleve || !fichierCorrige) {
+        statutValidation.textContent = "Renseignez le nom, le prénom et la classe, puis vérifiez le corrigé sélectionné.";
+        document.getElementById(!nomEleve ? "nom-eleve" : !prenomEleve ? "prenom-eleve" : "classe-eleve").focus();
+        return;
+    }
+
+    const champDate = document.getElementById("date-eleve");
+    if (!champDate.value.trim()) {
+        const maintenant = new Date();
+        champDate.value = [maintenant.getFullYear(), String(maintenant.getMonth() + 1).padStart(2, "0"), String(maintenant.getDate()).padStart(2, "0")].join("-");
+    }
+
+    boutonValiderCorrection.disabled = true;
+    statutValidation.textContent = "Enregistrement des résultats…";
+
+    try {
+        const reponse = await fetch(`${API_STATISTIQUES_URL}/notes`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                classe: classeEleve,
+                evaluation: fichierCorrige.name.replace(/\.[^.]+$/, ""),
+                date: champDate.value.trim(),
+                nom: nomEleve,
+                prenom: prenomEleve,
+                points: Number(correctionCourante.note_totale_proposee),
+                points_max: Number(correctionCourante.note_totale_maximale),
+                questions: correctionCourante.questions.map(question => ({
+                    numero: Number(question.numero),
+                    intitule: question.intitule,
+                    points: Number(question.note_proposee),
+                    points_max: Number(question.note_maximale)
+                }))
+            })
+        });
+        const donnees = await reponse.json();
+        if (!reponse.ok) {
+            throw new Error(donnees.detail || `Erreur HTTP ${reponse.status}`);
+        }
+
+        correctionValidee = true;
+        actualiserEtatValidation();
+        statutValidation.textContent = "Correction validée et résultats enregistrés.";
+    } catch (erreur) {
+        statutValidation.textContent = `Enregistrement impossible : ${erreur.message}`;
+        mettreAJourDisponibiliteValidation();
+    }
 }
 
 function autoriserModification() {
@@ -489,6 +617,331 @@ function calculerNoteSurSix(nbPoints, nbTotaux) {
     return ((points / total) * 5 + 1).toLocaleString("fr-FR", {
         maximumFractionDigits: 2
     });
+}
+
+async function afficherStatistiques() {
+    erreurStatistiques.textContent = "";
+    erreurStatistiques.classList.add("cache");
+    contenuStatistiques.innerHTML = '<p class="chargement-statistiques">Chargement des statistiques…</p>';
+    sectionFormulaire.classList.add("cache");
+    zoneResultat.classList.add("cache");
+    sectionStatistiques.classList.remove("cache");
+
+    try {
+        const reponse = await fetch(API_STATISTIQUES_URL);
+        const donnees = await reponse.json();
+        if (!reponse.ok) {
+            throw new Error(donnees.detail || `Erreur HTTP ${reponse.status}`);
+        }
+        afficherTableauStatistiques(donnees.classes || []);
+    } catch (erreur) {
+        contenuStatistiques.innerHTML = "";
+        erreurStatistiques.textContent = `Impossible de charger les statistiques : ${erreur.message}`;
+        erreurStatistiques.classList.remove("cache");
+    }
+
+    sectionStatistiques.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function afficherTableauStatistiques(classes) {
+    statistiquesDisponibles = classes;
+
+    if (!classes.length) {
+        filtresStatistiques.classList.add("cache");
+        contenuStatistiques.innerHTML = '<p class="etat-statistiques">Aucune évaluation enregistrée. Les résultats apparaîtront ici après validation par l’enseignant.</p>';
+        return;
+    }
+
+    filtresStatistiques.classList.remove("cache");
+    selecteurClasse.innerHTML = classes.map(classe => `
+        <option value="${echapperAttribut(classe.classe)}">${echapperHtml(classe.classe)}</option>
+    `).join("");
+    afficherEvaluationsClasse();
+}
+
+function afficherEvaluationsClasse() {
+    const classe = statistiquesDisponibles.find(element => element.classe === selecteurClasse.value);
+    if (!classe?.evaluations.length) {
+        selecteurEvaluation.innerHTML = "";
+        boutonExporterStatistiques.disabled = true;
+        contenuStatistiques.innerHTML = '<p class="etat-statistiques">Aucune évaluation enregistrée pour cette classe.</p>';
+        return;
+    }
+
+    selecteurEvaluation.innerHTML = classe.evaluations.map((evaluation, index) => `
+        <option value="${index}">${echapperHtml(evaluation.evaluation)} · ${echapperHtml(evaluation.date)}</option>
+    `).join("");
+    afficherEvaluationSelectionnee();
+}
+
+function afficherEvaluationSelectionnee() {
+    const classe = statistiquesDisponibles.find(element => element.classe === selecteurClasse.value);
+    const evaluation = classe?.evaluations[Number(selecteurEvaluation.value)];
+    if (!evaluation) {
+        evaluationStatistiquesCourante = null;
+        classeStatistiquesCourante = "";
+        boutonExporterStatistiques.disabled = true;
+        contenuStatistiques.innerHTML = '<p class="etat-statistiques">Sélectionnez une évaluation.</p>';
+        return;
+    }
+
+    evaluationStatistiquesCourante = evaluation;
+    classeStatistiquesCourante = classe.classe;
+    const elevesInclus = evaluation.eleves.filter(
+        eleve => !elevesExclusStatistiques.has(
+            cleEleveStatistiques(classe.classe, evaluation, eleve)
+        )
+    );
+    const statistiquesFiltrees = calculerStatistiquesFiltrees(evaluation, elevesInclus);
+    boutonExporterStatistiques.disabled = elevesInclus.length === 0;
+    const questions = evaluation.questions || [];
+    contenuStatistiques.innerHTML = `
+        <p class="titre-impression-statistiques">Classe ${echapperHtml(classe.classe)} · ${echapperHtml(evaluation.evaluation)} · ${echapperHtml(evaluation.date)}</p>
+        <fieldset class="filtre-eleves-statistiques">
+            <legend>Élèves inclus dans les statistiques (${elevesInclus.length}/${evaluation.eleves.length})</legend>
+            <div class="selection-eleves-statistiques">
+                ${evaluation.eleves.map(eleve => {
+                    const cleEleve = cleEleveStatistiques(classe.classe, evaluation, eleve);
+                    return `
+                        <label>
+                            <input class="case-inclusion-eleve" type="checkbox" data-student-key="${echapperAttribut(cleEleve)}" ${elevesExclusStatistiques.has(cleEleve) ? "" : "checked"}>
+                            <span>${echapperHtml(eleve.prenom)} ${echapperHtml(eleve.nom)}</span>
+                        </label>
+                    `;
+                }).join("")}
+            </div>
+            <button class="bouton-reinitialiser-eleves" type="button" ${elevesInclus.length === evaluation.eleves.length ? "disabled" : ""}>Réinclure tous les élèves de cette évaluation</button>
+        </fieldset>
+        ${elevesInclus.length ? `
+            <div class="resume-evaluation">
+                <span>${statistiquesFiltrees.nombre_eleves} élève${statistiquesFiltrees.nombre_eleves > 1 ? "s" : ""}</span>
+                <span>Moyenne : ${formaterNombre(statistiquesFiltrees.moyenne_sur_six)} / 6</span>
+                <span>Moyenne des points : ${formaterNombre(statistiquesFiltrees.moyenne_points)}</span>
+            </div>
+        ` : '<p class="etat-statistiques">Aucun élève n’est inclus. Cochez au moins un élève pour afficher les statistiques.</p>'}
+        ${elevesInclus.length ? `
+            ${questions.length ? `
+                ${statistiquesFiltrees.questions.length ? `
+                    <section class="graphique-questions" aria-labelledby="titre-graphique-questions">
+                        <h3 id="titre-graphique-questions">Réponses entièrement justes par question</h3>
+                        ${statistiquesFiltrees.questions.map(question => `
+                            <div class="ligne-graphique-question">
+                                <div class="libelle-graphique-question">
+                                    <span>Q${question.numero} · ${echapperHtml(question.intitule)}</span>
+                                    <strong>${question.nombre_justes} / ${question.nombre_reponses}</strong>
+                                </div>
+                                <div class="barre-graphique-question" role="img" aria-label="Question ${question.numero} : ${question.nombre_justes} réponses justes sur ${question.nombre_reponses}">
+                                    <span style="width: ${question.pourcentage_justes}%"></span>
+                                </div>
+                            </div>
+                        `).join("")}
+                    </section>
+                ` : '<p class="etat-statistiques">Aucun score détaillé par question pour les élèves inclus.</p>'}
+            ` : '<p class="etat-statistiques">Aucun score détaillé par question enregistré pour cette évaluation.</p>'}
+            <div class="tableau-statistiques-scroll">
+                <table class="tableau-statistiques">
+                    <thead><tr>
+                        <th scope="col">Nom</th><th scope="col">Prénom</th>
+                        ${questions.map(question => `<th scope="col" title="${echapperAttribut(question.intitule)}">Q${question.numero}<span class="sous-titre-colonne">/${formaterNombre(question.points_max)}</span></th>`).join("")}
+                        <th scope="col">Total</th><th scope="col">Note / 6</th><th scope="col">Action</th>
+                    </tr></thead>
+                    <tbody>
+                        ${elevesInclus.map(eleve => `
+                            <tr>
+                                <td>${echapperHtml(eleve.nom)}</td><td>${echapperHtml(eleve.prenom)}</td>
+                                ${questions.map(question => {
+                                    const score = eleve.questions?.find(element => Number(element.numero) === Number(question.numero));
+                                    return `<td>${score ? formaterNombre(score.points) : "—"}</td>`;
+                                }).join("")}
+                                <td>${formaterNombre(eleve.points)} / ${formaterNombre(eleve.points_max)}</td>
+                                <td>${formaterNombre(eleve.note_sur_six)} / 6</td>
+                                <td><button class="bouton-supprimer-resultat" type="button" data-student-index="${evaluation.eleves.indexOf(eleve)}" aria-label="Supprimer le résultat de ${echapperAttribut(eleve.prenom)} ${echapperAttribut(eleve.nom)}">Supprimer</button></td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        ` : ""}
+    `;
+}
+
+function cleEleveStatistiques(classe, evaluation, eleve) {
+    return JSON.stringify([
+        classe.trim().toLocaleLowerCase("fr-FR"),
+        evaluation.evaluation.trim().toLocaleLowerCase("fr-FR"),
+        evaluation.date.trim().toLocaleLowerCase("fr-FR"),
+        eleve.nom.trim().toLocaleLowerCase("fr-FR"),
+        eleve.prenom.trim().toLocaleLowerCase("fr-FR"),
+    ]);
+}
+
+function calculerStatistiquesFiltrees(evaluation, eleves) {
+    const nombreEleves = eleves.length;
+    const questions = (evaluation.questions || []).map(question => {
+        const reponses = eleves
+            .map(eleve => eleve.questions?.find(
+                element => Number(element.numero) === Number(question.numero)
+            ))
+            .filter(Boolean);
+        const nombreJustes = reponses.filter(
+            reponse => Number(reponse.points) >= Number(reponse.points_max)
+        ).length;
+
+        return {
+            ...question,
+            nombre_reponses: reponses.length,
+            nombre_justes: nombreJustes,
+            pourcentage_justes: reponses.length
+                ? Math.round(nombreJustes / reponses.length * 1000) / 10
+                : 0,
+        };
+    }).filter(question => question.nombre_reponses > 0);
+
+    return {
+        nombre_eleves: nombreEleves,
+        moyenne_points: nombreEleves
+            ? Math.round(eleves.reduce((total, eleve) => total + Number(eleve.points), 0) / nombreEleves * 100) / 100
+            : 0,
+        moyenne_sur_six: nombreEleves
+            ? Math.round(eleves.reduce((total, eleve) => total + Number(eleve.note_sur_six), 0) / nombreEleves * 100) / 100
+            : 0,
+        questions,
+    };
+}
+
+function formaterNombre(valeur) {
+    return Number(valeur).toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+}
+
+function exporterStatistiquesPdf() {
+    const classe = statistiquesDisponibles.find(element => element.classe === selecteurClasse.value);
+    const evaluation = classe?.evaluations[Number(selecteurEvaluation.value)];
+    if (!classe || !evaluation) {
+        return;
+    }
+
+    const titreOriginal = document.title;
+    document.title = ["Statistiques", classe.classe, evaluation.evaluation, evaluation.date]
+        .map(nettoyerSegmentNomFichier)
+        .join("_");
+    document.body.dataset.printView = "statistiques";
+    window.addEventListener("afterprint", () => {
+        document.title = titreOriginal;
+        delete document.body.dataset.printView;
+    }, { once: true });
+    window.print();
+}
+
+function revenirAuxCorrections() {
+    sectionStatistiques.classList.add("cache");
+    sectionFormulaire.classList.remove("cache");
+    if (correctionCourante) {
+        zoneResultat.classList.remove("cache");
+    }
+    sectionFormulaire.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function demanderSuppressionResultat(index) {
+    const eleve = evaluationStatistiquesCourante?.eleves[index];
+    if (!eleve) {
+        return;
+    }
+
+    resultatEnAttenteSuppression = index;
+    messageConfirmationSuppression.textContent =
+        `Le résultat de ${eleve.prenom} ${eleve.nom} pour « ${evaluationStatistiquesCourante.evaluation} » sera supprimé définitivement.`;
+    erreurSuppression.textContent = "";
+    erreurSuppression.classList.add("cache");
+    boutonOuiSuppression.disabled = false;
+    dialogSuppression.showModal();
+}
+
+async function supprimerResultatConfirme() {
+    const index = resultatEnAttenteSuppression;
+    const evaluation = evaluationStatistiquesCourante;
+    const eleve = evaluation?.eleves[index];
+    if (index === null || !evaluation || !eleve) {
+        return;
+    }
+
+    boutonOuiSuppression.disabled = true;
+    erreurSuppression.textContent = "";
+    erreurSuppression.classList.add("cache");
+    try {
+        const parametres = new URLSearchParams({
+            classe: classeStatistiquesCourante,
+            evaluation: evaluation.evaluation,
+            date: evaluation.date,
+            nom: eleve.nom,
+            prenom: eleve.prenom,
+        });
+        const reponse = await fetch(`${API_STATISTIQUES_URL}/notes?${parametres}`, {
+            method: "DELETE",
+        });
+        const donnees = await reponse.json();
+        if (!reponse.ok) {
+            throw new Error(donnees.detail || `Erreur HTTP ${reponse.status}`);
+        }
+
+        elevesExclusStatistiques.delete(
+            cleEleveStatistiques(classeStatistiquesCourante, evaluation, eleve)
+        );
+        evaluation.eleves.splice(index, 1);
+        dialogSuppression.close();
+        afficherEvaluationSelectionnee();
+    } catch (erreur) {
+        erreurSuppression.textContent = `Impossible de supprimer le résultat : ${erreur.message}`;
+        erreurSuppression.classList.remove("cache");
+    } finally {
+        boutonOuiSuppression.disabled = false;
+    }
+}
+
+function exporterPdf() {
+    const titreOriginal = document.title;
+    const nomCorrigePdf = champCorrige.files[0]?.name.replace(/\.txt$/i, "") || "corrige";
+    const nomEleve = document.getElementById("nom-eleve")?.value || "nom";
+    const prenomEleve = document.getElementById("prenom-eleve")?.value || "prenom";
+    const classeEleve = document.getElementById("classe-eleve")?.value || "classe";
+    const dateEleve = document.getElementById("date-eleve")?.value || "date";
+    const titrePdf = [nomCorrigePdf, nomEleve, prenomEleve, classeEleve, dateEleve]
+        .map(nettoyerSegmentNomFichier)
+        .join("_");
+
+    document.title = titrePdf;
+    window.addEventListener("afterprint", () => {
+        document.title = titreOriginal;
+    }, { once: true });
+    window.print();
+}
+
+function nettoyerSegmentNomFichier(segment) {
+    return String(segment ?? "")
+        .trim()
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[<>:"/\\|?*\x00-\x1f]/g, "_")
+        .replace(/\s+/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_+|_+$/g, "") || "sans_nom";
+}
+
+function extraireIdentite(texte) {
+    if (texte && typeof texte === "object") {
+        return {
+            nom: String(texte.nom ?? ""),
+            prenom: String(texte.prenom ?? ""),
+            classe: String(texte.classe ?? ""),
+            date: String(texte.date ?? "")
+        };
+    }
+
+    const nom = String(texte).match(/^\s*Nom\s*[:：]\s*(.*?)\s*$/im)?.[1] || "";
+    const prenom = String(texte).match(/^\s*Pr[ée]nom\s*[:：]\s*(.*?)\s*$/im)?.[1] || "";
+    const classe = String(texte).match(/^\s*Classe\s*[:：]\s*(.*?)\s*$/im)?.[1] || "";
+    const date = String(texte).match(/^\s*Date(?!\s+de\s+naissance)\s*[:：]\s*(.*?)\s*$/im)?.[1] || "";
+
+    return { nom, prenom, classe, date };
 }
 
 function echapperHtml(texte) {
