@@ -42,13 +42,29 @@ def enregistrer_note(note: dict) -> dict:
     else:
         notes[index_existant] = nouvelle_note
 
+    _ecrire_notes(notes)
+
+    return nouvelle_note
+
+
+def supprimer_note(identite: dict) -> bool:
+    notes = _charger_notes()
+    cle = _cle_note(identite)
+    notes_conservees = [note for note in notes if _cle_note(note) != cle]
+
+    if len(notes_conservees) == len(notes):
+        return False
+
+    _ecrire_notes(notes_conservees)
+    return True
+
+
+def _ecrire_notes(notes: list[dict]) -> None:
     FICHIER_STATISTIQUES.parent.mkdir(parents=True, exist_ok=True)
     fichier_temporaire = FICHIER_STATISTIQUES.with_suffix(".tmp")
     with fichier_temporaire.open("w", encoding="utf-8") as fichier:
         json.dump(notes, fichier, ensure_ascii=False, indent=2)
     fichier_temporaire.replace(FICHIER_STATISTIQUES)
-
-    return nouvelle_note
 
 
 def lire_statistiques() -> dict:
