@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CorrectIA | Assistant de correction</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
     <main class="conteneur">
@@ -15,6 +15,7 @@
                     <p>Assistant local de correction d'évaluations</p>
                 </div>
                 <div class="actions-entete">
+                    <button id="bouton-correction" class="bouton-navigation" type="button">Correction</button>
                     <button id="bouton-statistiques" class="bouton-navigation" type="button">Statistiques</button>
                     <button id="bouton-theme" class="bouton-theme" type="button" aria-label="Thème clair. Passer au mode sombre." title="Thème clair. Cliquer pour passer au mode sombre.">
                         <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true">
@@ -94,7 +95,9 @@
         <section id="section-statistiques" class="resultat section-statistiques cache" aria-labelledby="statistiques-title">
             <div class="entete-statistiques">
                 <h2 id="statistiques-title">Statistiques des classes</h2>
-                <button id="bouton-retour-correction" class="bouton-secondaire" type="button">Retour à la correction</button>
+                <div class="actions-statistiques">
+                    <button id="bouton-export-statistiques" type="button" disabled>Exporter les statistiques en PDF</button>
+                </div>
             </div>
             <div id="filtres-statistiques" class="filtres-statistiques cache">
                 <label for="selecteur-classe">Classe</label>
@@ -105,8 +108,18 @@
             <div id="contenu-statistiques" aria-live="polite"></div>
             <p id="erreur-statistiques" class="erreur cache" role="alert"></p>
         </section>
+
+        <dialog id="dialog-confirmation-suppression" class="dialog-suppression" aria-labelledby="titre-confirmation-suppression">
+            <h2 id="titre-confirmation-suppression">Supprimer ce résultat ?</h2>
+            <p id="message-confirmation-suppression"></p>
+            <p id="erreur-suppression" class="erreur cache" role="alert"></p>
+            <div class="actions-suppression">
+                <button id="bouton-non-suppression" class="bouton-non-suppression" type="button">Non, conserver</button>
+                <button id="bouton-oui-suppression" type="button">Oui, supprimer</button>
+            </div>
+        </dialog>
     </main>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=2"></script>
 </body>
 </html>

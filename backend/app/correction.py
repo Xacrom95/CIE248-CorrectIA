@@ -297,17 +297,42 @@ def _retirer_intitule_question(lignes: list[str], intitule: str) -> list[str]:
             lignes[index_ligne][fin_jeton:],
             flags=re.IGNORECASE,
         )
-        return ([suffixe] if suffixe else []) + lignes[index_ligne + 1:]
+        return _retirer_bareme_debut_reponse(
+            ([suffixe] if suffixe else []) + lignes[index_ligne + 1:]
+        )
 
     for index, ligne in enumerate(lignes):
         if "?" in ligne:
             suffixe = ligne.split("?", 1)[1].strip()
-            return ([suffixe] if suffixe else []) + lignes[index + 1:]
+            return _retirer_bareme_debut_reponse(
+                ([suffixe] if suffixe else []) + lignes[index + 1:]
+            )
 
     separateur_vide = next((index for index, ligne in enumerate(lignes) if not ligne), None)
     if separateur_vide is not None:
-        return lignes[separateur_vide + 1:]
-    return lignes[1:]
+        return _retirer_bareme_debut_reponse(lignes[separateur_vide + 1:])
+    return _retirer_bareme_debut_reponse(lignes[1:])
+
+
+def _retirer_bareme_debut_reponse(lignes: list[str]) -> list[str]:
+    resultat = list(lignes)
+    motif_bareme = re.compile(
+        r"^\s*[\(\[]\s*\d+(?:[.,]\d+)?\s*(?:points?|pts?)\s*[\)\]]\s*",
+        re.IGNORECASE,
+    )
+
+    for index, ligne in enumerate(resultat):
+        if not ligne.strip():
+            continue
+        ligne_nettoyee = motif_bareme.sub("", ligne, count=1)
+        if ligne_nettoyee != ligne:
+            if ligne_nettoyee.strip():
+                resultat[index] = ligne_nettoyee
+            else:
+                resultat.pop(index)
+        break
+
+    return resultat
 
 
 def _normaliser_jeton(jeton: str) -> str:

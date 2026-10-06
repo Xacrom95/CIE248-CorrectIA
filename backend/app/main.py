@@ -8,7 +8,7 @@ from app.documents import (
     extraire_identite,
     extraire_texte,
 )
-from app.statistiques import enregistrer_note, lire_statistiques
+from app.statistiques import enregistrer_note, lire_statistiques, supprimer_note
 
 
 app = FastAPI(
@@ -44,7 +44,7 @@ app.add_middleware(
         "http://localhost:8080"
     ],
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["Content-Type"]
 )
 
@@ -146,6 +146,34 @@ def obtenir_statistiques():
             status_code=500,
             detail=f"Impossible de lire les statistiques : {erreur}"
         ) from erreur
+
+
+@app.delete("/statistiques/notes")
+def supprimer_resultat_eleve(
+    classe: str,
+    evaluation: str,
+    date: str,
+    nom: str,
+    prenom: str,
+):
+    try:
+        supprime = supprimer_note({
+            "classe": classe,
+            "evaluation": evaluation,
+            "date": date,
+            "nom": nom,
+            "prenom": prenom,
+        })
+    except (OSError, ValueError) as erreur:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Impossible de supprimer le résultat : {erreur}"
+        ) from erreur
+
+    if not supprime:
+        raise HTTPException(status_code=404, detail="Ce résultat n'existe plus.")
+
+    return {"supprime": True}
 
 
 def generer_correction(corrige: str, copie_eleve: str):
