@@ -1,4 +1,5 @@
 const API_URL = "http://127.0.0.1:8000/correction/fichiers";
+const API_STATISTIQUES_URL = "http://127.0.0.1:8000/statistiques";
 const TAILLE_MAXIMALE = 10 * 1024 * 1024;
 
 const champCorrige = document.getElementById("corrige");
@@ -18,12 +19,22 @@ const boutonValiderCorrection = document.getElementById("bouton-valider-correcti
 const statutValidation = document.getElementById("statut-validation");
 const boutonPdf = document.getElementById("bouton-pdf");
 const boutonReediter = document.getElementById("bouton-reediter");
+const boutonStatistiques = document.getElementById("bouton-statistiques");
+const boutonRetourCorrection = document.getElementById("bouton-retour-correction");
+const sectionFormulaire = document.getElementById("section-formulaire");
+const sectionStatistiques = document.getElementById("section-statistiques");
+const filtresStatistiques = document.getElementById("filtres-statistiques");
+const selecteurClasse = document.getElementById("selecteur-classe");
+const selecteurEvaluation = document.getElementById("selecteur-evaluation");
+const contenuStatistiques = document.getElementById("contenu-statistiques");
+const erreurStatistiques = document.getElementById("erreur-statistiques");
 
 let intervalleTemps = null;
 let debutCorrection = null;
 let controleurCorrection = null;
 let correctionCourante = null;
 let correctionValidee = false;
+let statistiquesDisponibles = [];
 const preferenceThemeSysteme = window.matchMedia("(prefers-color-scheme: dark)");
 
 function appliquerTheme(theme) {
@@ -57,6 +68,10 @@ boutonAnnuler.addEventListener("click", () => controleurCorrection?.abort());
 boutonValiderCorrection.addEventListener("click", validerCorrection);
 boutonPdf.addEventListener("click", exporterPdf);
 boutonReediter.addEventListener("click", autoriserModification);
+boutonStatistiques.addEventListener("click", afficherStatistiques);
+boutonRetourCorrection.addEventListener("click", revenirAuxCorrections);
+selecteurClasse.addEventListener("change", afficherEvaluationsClasse);
+selecteurEvaluation.addEventListener("change", afficherEvaluationSelectionnee);
 boutonTheme.addEventListener("click", () => {
     const prochainTheme = { light: "dark", dark: "system", system: "light" }[
         boutonTheme.dataset.theme
@@ -422,7 +437,7 @@ function actualiserCommentaireImpression(champ) {
     champ.closest(".champ-texte")?.classList.toggle("masquer-impression", contientRecommandation);
 }
 
-function validerCorrection() {
+async function validerCorrection() {
     if (!correctionCourante || !toutesQuestionsValidees()) {
         return;
     }
@@ -434,8 +449,58 @@ function validerCorrection() {
         return;
     }
 
-    correctionValidee = true;
-    actualiserEtatValidation();
+    const nomEleve = document.getElementById("nom-eleve").value.trim();
+    const prenomEleve = document.getElementById("prenom-eleve").value.trim();
+    const classeEleve = document.getElementById("classe-eleve").value.trim();
+    const fichierCorrige = champCorrige.files[0];
+
+    if (!nomEleve || !prenomEleve || !classeEleve || !fichierCorrige) {
+        statutValidation.textContent = "Renseignez le nom, le prénom et la classe, puis vérifiez le corrigé sélectionné.";
+        document.getElementById(!nomEleve ? "nom-eleve" : !prenomEleve ? "prenom-eleve" : "classe-eleve").focus();
+        return;
+    }
+
+    const champDate = document.getElementById("date-eleve");
+    if (!champDate.value.trim()) {
+        const maintenant = new Date();
+        champDate.value = [maintenant.getFullYear(), String(maintenant.getMonth() + 1).padStart(2, "0"), String(maintenant.getDate()).padStart(2, "0")].join("-");
+    }
+
+    boutonValiderCorrection.disabled = true;
+    statutValidation.textContent = "Enregistrement des résultats…";
+
+    try {
+        const reponse = await fetch(`${API_STATISTIQUES_URL}/notes`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                classe: classeEleve,
+                evaluation: fichierCorrige.name.replace(/\.[^.]+$/, ""),
+                date: champDate.value.trim(),
+                nom: nomEleve,
+                prenom: prenomEleve,
+                points: Number(correctionCourante.note_totale_proposee),
+                points_max: Number(correctionCourante.note_totale_maximale),
+                questions: correctionCourante.questions.map(question => ({
+                    numero: Number(question.numero),
+                    intitule: question.intitule,
+                    points: Number(question.note_proposee),
+                    points_max: Number(question.note_maximale)
+                }))
+            })
+        });
+        const donnees = await reponse.json();
+        if (!reponse.ok) {
+            throw new Error(donnees.detail || `Erreur HTTP ${reponse.status}`);
+        }
+
+        correctionValidee = true;
+        actualiserEtatValidation();
+        statutValidation.textContent = "Correction validée et résultats enregistrés.";
+    } catch (erreur) {
+        statutValidation.textContent = `Enregistrement impossible : ${erreur.message}`;
+        mettreAJourDisponibiliteValidation();
+    }
 }
 
 function autoriserModification() {
@@ -500,6 +565,129 @@ function calculerNoteSurSix(nbPoints, nbTotaux) {
     return ((points / total) * 5 + 1).toLocaleString("fr-FR", {
         maximumFractionDigits: 2
     });
+}
+
+async function afficherStatistiques() {
+    erreurStatistiques.textContent = "";
+    erreurStatistiques.classList.add("cache");
+    contenuStatistiques.innerHTML = '<p class="chargement-statistiques">Chargement des statistiques…</p>';
+    sectionFormulaire.classList.add("cache");
+    zoneResultat.classList.add("cache");
+    sectionStatistiques.classList.remove("cache");
+
+    try {
+        const reponse = await fetch(API_STATISTIQUES_URL);
+        const donnees = await reponse.json();
+        if (!reponse.ok) {
+            throw new Error(donnees.detail || `Erreur HTTP ${reponse.status}`);
+        }
+        afficherTableauStatistiques(donnees.classes || []);
+    } catch (erreur) {
+        contenuStatistiques.innerHTML = "";
+        erreurStatistiques.textContent = `Impossible de charger les statistiques : ${erreur.message}`;
+        erreurStatistiques.classList.remove("cache");
+    }
+
+    sectionStatistiques.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function afficherTableauStatistiques(classes) {
+    statistiquesDisponibles = classes;
+
+    if (!classes.length) {
+        filtresStatistiques.classList.add("cache");
+        contenuStatistiques.innerHTML = '<p class="etat-statistiques">Aucune évaluation enregistrée. Les résultats apparaîtront ici après validation par l’enseignant.</p>';
+        return;
+    }
+
+    filtresStatistiques.classList.remove("cache");
+    selecteurClasse.innerHTML = classes.map(classe => `
+        <option value="${echapperAttribut(classe.classe)}">${echapperHtml(classe.classe)}</option>
+    `).join("");
+    afficherEvaluationsClasse();
+}
+
+function afficherEvaluationsClasse() {
+    const classe = statistiquesDisponibles.find(element => element.classe === selecteurClasse.value);
+    if (!classe?.evaluations.length) {
+        selecteurEvaluation.innerHTML = "";
+        contenuStatistiques.innerHTML = '<p class="etat-statistiques">Aucune évaluation enregistrée pour cette classe.</p>';
+        return;
+    }
+
+    selecteurEvaluation.innerHTML = classe.evaluations.map((evaluation, index) => `
+        <option value="${index}">${echapperHtml(evaluation.evaluation)} · ${echapperHtml(evaluation.date)}</option>
+    `).join("");
+    afficherEvaluationSelectionnee();
+}
+
+function afficherEvaluationSelectionnee() {
+    const classe = statistiquesDisponibles.find(element => element.classe === selecteurClasse.value);
+    const evaluation = classe?.evaluations[Number(selecteurEvaluation.value)];
+    if (!evaluation) {
+        contenuStatistiques.innerHTML = '<p class="etat-statistiques">Sélectionnez une évaluation.</p>';
+        return;
+    }
+
+    const questions = evaluation.questions || [];
+    contenuStatistiques.innerHTML = `
+        <div class="resume-evaluation">
+            <span>${evaluation.nombre_eleves} élève${evaluation.nombre_eleves > 1 ? "s" : ""}</span>
+            <span>Moyenne : ${formaterNombre(evaluation.moyenne_sur_six)} / 6</span>
+            <span>Moyenne des points : ${formaterNombre(evaluation.moyenne_points)}</span>
+        </div>
+        ${questions.length ? `
+            <section class="graphique-questions" aria-labelledby="titre-graphique-questions">
+                <h3 id="titre-graphique-questions">Réponses entièrement justes par question</h3>
+                ${questions.map(question => `
+                    <div class="ligne-graphique-question">
+                        <div class="libelle-graphique-question">
+                            <span>Q${question.numero} · ${echapperHtml(question.intitule)}</span>
+                            <strong>${question.nombre_justes} / ${question.nombre_reponses}</strong>
+                        </div>
+                        <div class="barre-graphique-question" role="img" aria-label="Question ${question.numero} : ${question.nombre_justes} réponses justes sur ${question.nombre_reponses}">
+                            <span style="width: ${question.pourcentage_justes}%"></span>
+                        </div>
+                    </div>
+                `).join("")}
+            </section>
+        ` : '<p class="etat-statistiques">Aucun score détaillé par question enregistré pour cette évaluation.</p>'}
+        <div class="tableau-statistiques-scroll">
+            <table class="tableau-statistiques">
+                <thead><tr>
+                    <th scope="col">Nom</th><th scope="col">Prénom</th>
+                    ${questions.map(question => `<th scope="col" title="${echapperAttribut(question.intitule)}">Q${question.numero}<span class="sous-titre-colonne">/${formaterNombre(question.points_max)}</span></th>`).join("")}
+                    <th scope="col">Total</th><th scope="col">Note / 6</th>
+                </tr></thead>
+                <tbody>
+                    ${evaluation.eleves.map(eleve => `
+                        <tr>
+                            <td>${echapperHtml(eleve.nom)}</td><td>${echapperHtml(eleve.prenom)}</td>
+                            ${questions.map(question => {
+                                const score = eleve.questions?.find(element => Number(element.numero) === Number(question.numero));
+                                return `<td>${score ? formaterNombre(score.points) : "—"}</td>`;
+                            }).join("")}
+                            <td>${formaterNombre(eleve.points)} / ${formaterNombre(eleve.points_max)}</td>
+                            <td>${formaterNombre(eleve.note_sur_six)} / 6</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function formaterNombre(valeur) {
+    return Number(valeur).toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+}
+
+function revenirAuxCorrections() {
+    sectionStatistiques.classList.add("cache");
+    sectionFormulaire.classList.remove("cache");
+    if (correctionCourante) {
+        zoneResultat.classList.remove("cache");
+    }
+    sectionFormulaire.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function exporterPdf() {
