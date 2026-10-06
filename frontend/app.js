@@ -312,6 +312,14 @@ function afficherCorrection(correction, texteCopieEleve = "") {
                 Prénom
                 <input id="prenom-eleve" type="text" autocomplete="given-name" data-editable="true" value="${echapperAttribut(identiteEleve.prenom)}">
             </label>
+            <label class="champ-identite" for="classe-eleve">
+                Classe
+                <input id="classe-eleve" type="text" data-editable="true" value="${echapperAttribut(identiteEleve.classe)}">
+            </label>
+            <label class="champ-identite" for="date-eleve">
+                Date
+                <input id="date-eleve" type="text" data-editable="true" value="${echapperAttribut(identiteEleve.date)}">
+            </label>
         </div>
 
         <p class="note-sur-six">
@@ -499,7 +507,9 @@ function exporterPdf() {
     const nomCorrigePdf = champCorrige.files[0]?.name.replace(/\.txt$/i, "") || "corrige";
     const nomEleve = document.getElementById("nom-eleve")?.value || "nom";
     const prenomEleve = document.getElementById("prenom-eleve")?.value || "prenom";
-    const titrePdf = [nomCorrigePdf, nomEleve, prenomEleve]
+    const classeEleve = document.getElementById("classe-eleve")?.value || "classe";
+    const dateEleve = document.getElementById("date-eleve")?.value || "date";
+    const titrePdf = [nomCorrigePdf, nomEleve, prenomEleve, classeEleve, dateEleve]
         .map(nettoyerSegmentNomFichier)
         .join("_");
 
@@ -525,14 +535,18 @@ function extraireIdentite(texte) {
     if (texte && typeof texte === "object") {
         return {
             nom: String(texte.nom ?? ""),
-            prenom: String(texte.prenom ?? "")
+            prenom: String(texte.prenom ?? ""),
+            classe: String(texte.classe ?? ""),
+            date: String(texte.date ?? "")
         };
     }
 
     const nom = String(texte).match(/^\s*Nom\s*[:：]\s*(.*?)\s*$/im)?.[1] || "";
     const prenom = String(texte).match(/^\s*Pr[ée]nom\s*[:：]\s*(.*?)\s*$/im)?.[1] || "";
+    const classe = String(texte).match(/^\s*Classe\s*[:：]\s*(.*?)\s*$/im)?.[1] || "";
+    const date = String(texte).match(/^\s*Date(?!\s+de\s+naissance)\s*[:：]\s*(.*?)\s*$/im)?.[1] || "";
 
-    return { nom, prenom };
+    return { nom, prenom, classe, date };
 }
 
 function echapperHtml(texte) {

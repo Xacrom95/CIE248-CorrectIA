@@ -66,8 +66,20 @@ def extraire_identite(texte: str) -> dict[str, str]:
         texte,
         re.IGNORECASE | re.MULTILINE,
     )
+    classe = re.search(
+        r"^\s*Classe(?:\s+de\s+l['’]élève)?\s*[:：]\s*(.*?)\s*$",
+        texte,
+        re.IGNORECASE | re.MULTILINE,
+    )
+    date = re.search(
+        r"^\s*Date(?!\s+de\s+naissance)(?:\s+(?:de\s+l['’]?évaluation|d['’]?évaluation))?\s*[:：]\s*(.*?)\s*$",
+        texte,
+        re.IGNORECASE | re.MULTILINE,
+    )
 
     return {
         "nom": nom.group(1).strip() if nom else "",
         "prenom": prenom.group(1).strip() if prenom else "",
+        "classe": classe.group(1).strip() if classe else "",
+        "date": date.group(1).strip() if date else "",
     }
