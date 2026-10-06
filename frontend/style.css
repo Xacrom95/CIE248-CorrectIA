@@ -536,6 +536,21 @@ button:disabled {
     margin: 0;
 }
 
+.actions-statistiques {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.actions-statistiques button {
+    margin: 0;
+}
+
+.titre-impression-statistiques {
+    display: none;
+}
+
 .filtres-statistiques {
     display: grid;
     grid-template-columns: auto minmax(180px, 1fr) auto minmax(220px, 1.5fr);
@@ -1029,6 +1044,15 @@ html[data-theme="dark"] .sous-titre-colonne {
         flex-direction: column;
     }
 
+    .actions-statistiques {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .actions-statistiques button {
+        width: 100%;
+    }
+
     .filtres-statistiques {
         grid-template-columns: auto 1fr;
     }
@@ -1054,5 +1078,67 @@ html[data-theme="dark"] .sous-titre-colonne {
 
     .actions-resultat button {
         width: 100%;
+    }
+}
+
+@media print {
+    body[data-print-view="statistiques"] header,
+    body[data-print-view="statistiques"] #section-formulaire,
+    body[data-print-view="statistiques"] #resultat,
+    body[data-print-view="statistiques"] #bouton-correction,
+    body[data-print-view="statistiques"] #bouton-statistiques,
+    body[data-print-view="statistiques"] #bouton-export-statistiques,
+    body[data-print-view="statistiques"] .filtres-statistiques {
+        display: none !important;
+    }
+
+    body[data-print-view="statistiques"] .conteneur {
+        width: 100%;
+        margin: 0;
+    }
+
+    body[data-print-view="statistiques"] #section-statistiques {
+        display: block !important;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background: white !important;
+        color: #172033 !important;
+        box-shadow: none;
+    }
+
+    body[data-print-view="statistiques"] .titre-impression-statistiques {
+        display: block !important;
+        margin: 0 0 18px;
+        color: #172033 !important;
+        font-size: 16pt;
+        font-weight: 700;
+    }
+
+    body[data-print-view="statistiques"] .resume-evaluation,
+    body[data-print-view="statistiques"] .graphique-questions,
+    body[data-print-view="statistiques"] .tableau-statistiques-scroll {
+        color: #172033 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    body[data-print-view="statistiques"] .barre-graphique-question {
+        background: #e2e8f0 !important;
+    }
+
+    body[data-print-view="statistiques"] .barre-graphique-question span {
+        background: #2563eb !important;
+    }
+
+    body[data-print-view="statistiques"] .tableau-statistiques th {
+        background: #eff6ff !important;
+        color: #172033 !important;
+    }
+
+    body[data-print-view="statistiques"] .tableau-statistiques td,
+    body[data-print-view="statistiques"] .tableau-statistiques th {
+        border-color: #cbd5e1 !important;
+        color: #172033 !important;
     }
 }
