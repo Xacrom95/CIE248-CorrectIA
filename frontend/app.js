@@ -14,10 +14,16 @@ const tempsEcoule = document.getElementById("temps-ecoule");
 const zoneErreur = document.getElementById("erreur");
 const zoneResultat = document.getElementById("resultat");
 const contenuResultat = document.getElementById("contenu-resultat");
+const boutonValiderCorrection = document.getElementById("bouton-valider-correction");
+const statutValidation = document.getElementById("statut-validation");
+const boutonPdf = document.getElementById("bouton-pdf");
+const boutonReediter = document.getElementById("bouton-reediter");
 
 let intervalleTemps = null;
 let debutCorrection = null;
 let controleurCorrection = null;
+let correctionCourante = null;
+let correctionValidee = false;
 
 function appliquerTheme(theme) {
     const nocturne = theme === "dark";
@@ -33,10 +39,19 @@ champCorrige.addEventListener("change", () => afficherNomFichier(champCorrige, n
 champCopie.addEventListener("change", () => afficherNomFichier(champCopie, nomCopie));
 boutonCorriger.addEventListener("click", corrigerCopie);
 boutonAnnuler.addEventListener("click", () => controleurCorrection?.abort());
+boutonValiderCorrection.addEventListener("click", validerCorrection);
+boutonPdf.addEventListener("click", () => window.print());
+boutonReediter.addEventListener("click", autoriserModification);
 boutonTheme.addEventListener("click", () => {
     appliquerTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
 });
 boutonNouvelleCorrection.addEventListener("click", reinitialiserInterface);
+contenuResultat.addEventListener("input", mettreAJourCorrection);
+contenuResultat.addEventListener("change", (evenement) => {
+    if (evenement.target.matches(".confirmation-question")) {
+        mettreAJourDisponibiliteValidation();
+    }
+});
 
 function afficherNomFichier(champ, zoneNom) {
     const fichier = champ.files[0];
@@ -180,6 +195,8 @@ function masquerErreur() {
 function masquerResultat() {
     contenuResultat.innerHTML = "";
     zoneResultat.classList.add("cache");
+    correctionCourante = null;
+    reinitialiserValidation();
 }
 
 function reinitialiserInterface() {
@@ -193,11 +210,20 @@ function reinitialiserInterface() {
 }
 
 function afficherCorrection(correction) {
-    const questions = Array.isArray(correction.questions)
-        ? correction.questions
+    correctionCourante = structuredClone(correction);
+    const questions = Array.isArray(correctionCourante.questions)
+        ? correctionCourante.questions
         : [];
 
-    const htmlQuestions = questions.map((question) => `
+    const htmlQuestions = questions.map((question, index) => {
+        const noteMaximale = Number.isFinite(Number(question.note_maximale))
+            ? Number(question.note_maximale)
+            : 0;
+        const noteProposee = Number.isFinite(Number(question.note_proposee))
+            ? Number(question.note_proposee)
+            : 0;
+
+        return `
     <article class="question-resultat">
         <div class="question-originale">
             <h3>
@@ -222,33 +248,29 @@ function afficherCorrection(correction) {
             </p>
         </div>
 
-        <p class="note-question">
-            <strong>Note proposée :</strong>
-            ${echapperHtml(question.note_proposee)} /
-            ${echapperHtml(question.note_maximale)}
-        </p>
+        <label class="champ-note">
+            Note attribuée
+            <span class="saisie-note">
+                <input type="number" min="0" max="${noteMaximale}" step="any" required
+                    value="${noteProposee}"
+                    data-editable="true" data-question-index="${index}" data-field="note_proposee"
+                    aria-label="Note attribuée à la question ${echapperAttribut(question.numero)}">
+                <span>/ ${echapperHtml(question.note_maximale)}</span>
+            </span>
+        </label>
 
         <div class="details-correction">
             <div class="bloc-correct">
-                <h4>Éléments corrects</h4>
-                ${creerListe(question.elements_corrects)}
+                ${creerChampTexte("Arguments corrects", question.elements_corrects, `data-question-index="${index}" data-field="elements_corrects"`, 4)}
             </div>
 
             <div class="bloc-manquant">
-                <h4>Éléments manquants ou incorrects</h4>
-
-                ${creerListe(
-                    question.elements_manquants_ou_incorrects
-                )}
+                ${creerChampTexte("Arguments manquants ou incorrects", question.elements_manquants_ou_incorrects, `data-question-index="${index}" data-field="elements_manquants_ou_incorrects"`, 4)}
             </div>
         </div>
 
         <div class="commentaire-question">
-            <h4>Commentaire</h4>
-
-            <p>
-                ${echapperHtml(question.commentaire)}
-            </p>
+            ${creerChampTexte("Commentaire", question.commentaire, `data-question-index="${index}" data-field="commentaire"`, 3)}
         </div>
 
         ${
@@ -261,24 +283,46 @@ function afficherCorrection(correction) {
                 `
                 : ""
         }
+
+        <div class="validation-question">
+            <label class="case-validation" for="validation-question-${index}">
+                <input id="validation-question-${index}" class="confirmation-question" type="checkbox"
+                    data-validation-index="${index}">
+                Question vérifiée par l’enseignant
+            </label>
+        </div>
     </article>
-`).join("");
+`;
+    }).join("");
 
     const verificationGlobale = correction.verification_humaine_recommandee
         ? '<p class="avertissement">Une vérification humaine particulière est recommandée.</p>'
         : '';
 
     contenuResultat.innerHTML = `
+        <div class="identite-eleve">
+            <label class="champ-identite" for="nom-eleve">
+                Nom
+                <input id="nom-eleve" type="text" autocomplete="family-name" data-editable="true">
+            </label>
+            <label class="champ-identite" for="prenom-eleve">
+                Prénom
+                <input id="prenom-eleve" type="text" autocomplete="given-name" data-editable="true">
+            </label>
+        </div>
+
         <p class="note-totale">
-            Note totale proposée :
-            ${echapperHtml(correction.note_totale_proposee)} /
-            ${echapperHtml(correction.note_totale_maximale)}
+            Points attribués :
+            <span id="note-totale-valeur">${echapperHtml(correctionCourante.note_totale_proposee)}</span> /
+            ${echapperHtml(correctionCourante.note_totale_maximale)}
+        </p>
+        <p class="note-sur-six">
+            Note sur 6 : <strong id="note-sur-six-valeur">${calculerNoteSurSix(correctionCourante.note_totale_proposee, correctionCourante.note_totale_maximale)}</strong> / 6
         </p>
 
         ${htmlQuestions}
 
-        <h3>Commentaire global</h3>
-        <p>${echapperHtml(correction.commentaire_global)}</p>
+        ${creerChampTexte("Commentaire global", correctionCourante.commentaire_global, "data-global-field=\"commentaire_global\"", 4)}
 
         ${verificationGlobale}
 
@@ -287,20 +331,172 @@ function afficherCorrection(correction) {
         </p>
     `;
 
+    contenuResultat.querySelectorAll(
+        'textarea[data-field="commentaire"], textarea[data-global-field="commentaire_global"]'
+    ).forEach(actualiserCommentaireImpression);
+
+    reinitialiserValidation();
     zoneResultat.classList.remove("cache");
     zoneResultat.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function creerListe(elements) {
-    if (!Array.isArray(elements) || elements.length === 0) {
-        return "<p>Aucun élément signalé.</p>";
+function creerChampTexte(libelle, valeur, attributs, lignes) {
+    const contenu = Array.isArray(valeur) ? valeur.join("\n") : valeur;
+
+    return `
+        <label class="champ-texte">
+            ${libelle}
+            <textarea rows="${lignes}" ${attributs} data-editable="true">${echapperHtml(contenu)}</textarea>
+        </label>
+    `;
+}
+
+function mettreAJourCorrection(evenement) {
+    const champ = evenement.target;
+
+    if (!correctionCourante) {
+        return;
     }
 
-    return `<ul>${elements.map((element) => `<li>${echapperHtml(element)}</li>`).join("")}</ul>`;
+    if (champ.dataset.globalField) {
+        correctionCourante[champ.dataset.globalField] = champ.value;
+        actualiserCommentaireImpression(champ);
+        contenuResultat.querySelectorAll(".confirmation-question").forEach((caseQuestion) => {
+            caseQuestion.checked = false;
+        });
+        mettreAJourDisponibiliteValidation();
+        return;
+    }
+
+    const index = Number(champ.dataset.questionIndex);
+    const question = correctionCourante.questions[index];
+    const champModifie = champ.dataset.field;
+
+    if (!question || !champModifie) {
+        return;
+    }
+
+    const validationQuestion = contenuResultat.querySelector(
+        `.confirmation-question[data-validation-index="${index}"]`
+    );
+    validationQuestion.checked = false;
+    mettreAJourDisponibiliteValidation();
+
+    if (champModifie === "note_proposee") {
+        question[champModifie] = Number(champ.value);
+        const total = correctionCourante.questions.reduce(
+            (somme, element) => somme + Number(element.note_proposee || 0),
+            0
+        );
+        correctionCourante.note_totale_proposee = Number(total.toFixed(2));
+        document.getElementById("note-totale-valeur").textContent = correctionCourante.note_totale_proposee;
+        document.getElementById("note-sur-six-valeur").textContent = calculerNoteSurSix(
+            correctionCourante.note_totale_proposee,
+            correctionCourante.note_totale_maximale
+        );
+        return;
+    }
+
+    question[champModifie] = champModifie.startsWith("elements_")
+        ? champ.value.split(/\r?\n/).map((element) => element.trim()).filter(Boolean)
+        : champ.value;
+
+    if (champModifie === "commentaire") {
+        actualiserCommentaireImpression(champ);
+    }
+}
+
+function actualiserCommentaireImpression(champ) {
+    const contientRecommandation = /\brecommand|vérification humaine|vérifier les réponses manuellement/i.test(champ.value);
+    champ.closest(".champ-texte")?.classList.toggle("masquer-impression", contientRecommandation);
+}
+
+function validerCorrection() {
+    if (!correctionCourante || !toutesQuestionsValidees()) {
+        return;
+    }
+
+    const notes = contenuResultat.querySelectorAll('input[type="number"]');
+    const noteInvalide = Array.from(notes).find((note) => !note.reportValidity());
+
+    if (noteInvalide) {
+        return;
+    }
+
+    correctionValidee = true;
+    actualiserEtatValidation();
+}
+
+function autoriserModification() {
+    correctionValidee = false;
+    contenuResultat.querySelectorAll(".confirmation-question").forEach((caseQuestion) => {
+        caseQuestion.checked = false;
+        caseQuestion.disabled = false;
+    });
+    actualiserEtatValidation();
+}
+
+function reinitialiserValidation() {
+    correctionValidee = false;
+    boutonValiderCorrection.disabled = true;
+    boutonValiderCorrection.classList.remove("cache");
+    statutValidation.textContent = "";
+    boutonPdf.disabled = true;
+    boutonReediter.classList.add("cache");
+    contenuResultat.querySelectorAll("[data-editable='true']").forEach((champ) => {
+        champ.disabled = false;
+    });
+    contenuResultat.querySelectorAll(".confirmation-question").forEach((caseQuestion) => {
+        caseQuestion.checked = false;
+        caseQuestion.disabled = false;
+    });
+    mettreAJourDisponibiliteValidation();
+}
+
+function actualiserEtatValidation() {
+    contenuResultat.querySelectorAll("[data-editable='true']").forEach((champ) => {
+        champ.disabled = correctionValidee;
+    });
+    contenuResultat.querySelectorAll(".confirmation-question").forEach((caseQuestion) => {
+        caseQuestion.disabled = correctionValidee;
+    });
+    boutonValiderCorrection.classList.toggle("cache", correctionValidee);
+    mettreAJourDisponibiliteValidation();
+    boutonPdf.disabled = !correctionValidee;
+    boutonReediter.classList.toggle("cache", !correctionValidee);
+    statutValidation.textContent = correctionValidee
+        ? "Correction validée par l’enseignant."
+        : "";
+}
+
+function toutesQuestionsValidees() {
+    const cases = Array.from(contenuResultat.querySelectorAll(".confirmation-question"));
+    return cases.length > 0 && cases.every((caseQuestion) => caseQuestion.checked);
+}
+
+function mettreAJourDisponibiliteValidation() {
+    boutonValiderCorrection.disabled = correctionValidee || !toutesQuestionsValidees();
+}
+
+function calculerNoteSurSix(nbPoints, nbTotaux) {
+    const points = Number(nbPoints);
+    const total = Number(nbTotaux);
+
+    if (!Number.isFinite(points) || !Number.isFinite(total) || total <= 0) {
+        return "—";
+    }
+
+    return ((points / total) * 5 + 1).toLocaleString("fr-FR", {
+        maximumFractionDigits: 2
+    });
 }
 
 function echapperHtml(texte) {
     const element = document.createElement("div");
     element.textContent = String(texte ?? "");
     return element.innerHTML;
+}
+
+function echapperAttribut(texte) {
+    return echapperHtml(texte).replaceAll('"', "&quot;");
 }
