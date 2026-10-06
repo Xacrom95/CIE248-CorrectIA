@@ -1,5 +1,5 @@
-const API_URL = "http://127.0.0.1:8000/correction";
-const TAILLE_MAXIMALE = 2 * 1024 * 1024;
+const API_URL = "http://127.0.0.1:8000/correction/fichiers";
+const TAILLE_MAXIMALE = 10 * 1024 * 1024;
 
 const champCorrige = document.getElementById("corrige");
 const champCopie = document.getElementById("copie");
@@ -81,8 +81,9 @@ function verifierFichier(fichier, libelle) {
         throw new Error(`Veuillez sélectionner ${libelle}.`);
     }
 
-    if (!fichier.name.toLowerCase().endsWith(".txt")) {
-        throw new Error(`${libelle} doit être au format .txt.`);
+    const extension = fichier.name.split(".").pop().toLowerCase();
+    if (!["txt", "pdf", "docx"].includes(extension)) {
+        throw new Error(`${libelle} doit être au format .txt, .pdf ou .docx.`);
     }
 
     if (fichier.size === 0) {
@@ -90,18 +91,8 @@ function verifierFichier(fichier, libelle) {
     }
 
     if (fichier.size > TAILLE_MAXIMALE) {
-        throw new Error(`${libelle} dépasse la taille maximale de 2 Mo.`);
+        throw new Error(`${libelle} dépasse la taille maximale de 10 Mo.`);
     }
-}
-
-async function lireFichierTexte(fichier) {
-    const contenu = await fichier.text();
-
-    if (!contenu.trim()) {
-        throw new Error(`Le fichier ${fichier.name} ne contient aucun texte exploitable.`);
-    }
-
-    return contenu;
 }
 
 async function corrigerCopie() {
@@ -118,21 +109,14 @@ async function corrigerCopie() {
         activerChargement();
         controleurCorrection = new AbortController();
 
-        const [corrige, copieEleve] = await Promise.all([
-            lireFichierTexte(fichierCorrige),
-            lireFichierTexte(fichierCopie)
-        ]);
+        const fichiers = new FormData();
+        fichiers.append("corrige", fichierCorrige);
+        fichiers.append("copie_eleve", fichierCopie);
 
         const reponse = await fetch(API_URL, {
             method: "POST",
             signal: controleurCorrection.signal,
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                corrige: corrige,
-                copie_eleve: copieEleve
-            })
+            body: fichiers
         });
 
         let donnees;
@@ -151,7 +135,7 @@ async function corrigerCopie() {
             throw new Error(detail || `Erreur HTTP ${reponse.status}`);
         }
 
-        afficherCorrection(donnees, copieEleve);
+        afficherCorrection(donnees, donnees.identite_eleve || "");
     } catch (erreur) {
         console.error(erreur);
 
@@ -538,6 +522,13 @@ function nettoyerSegmentNomFichier(segment) {
 }
 
 function extraireIdentite(texte) {
+    if (texte && typeof texte === "object") {
+        return {
+            nom: String(texte.nom ?? ""),
+            prenom: String(texte.prenom ?? "")
+        };
+    }
+
     const nom = String(texte).match(/^\s*Nom\s*[:：]\s*(.*?)\s*$/im)?.[1] || "";
     const prenom = String(texte).match(/^\s*Pr[ée]nom\s*[:：]\s*(.*?)\s*$/im)?.[1] || "";
 
