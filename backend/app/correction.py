@@ -2,6 +2,7 @@ import json
 import os
 import re
 import unicodedata
+from difflib import SequenceMatcher
 import urllib.error
 import urllib.request
 
@@ -191,6 +192,85 @@ def extraire_reponses_eleve(copie_eleve: str, corriges: list[dict]) -> dict[int,
         }
 
     return reponses
+
+
+def valider_correspondance_documents(corrige: str, copie_eleve: str) -> None:
+    """Refuse de corriger lorsque les questions des deux documents divergent."""
+    questions_corrige = extraire_document(corrige, "Réponse :")
+    if not questions_corrige:
+        raise ValueError(
+            "Aucune question exploitable n'a été trouvée dans le corrigé. "
+            "Vérifiez que chaque question est suivie de sa réponse attendue."
+        )
+
+    questions_copie = _extraire_intitules_copie(copie_eleve)
+    if not questions_copie:
+        raise ValueError(
+            "Impossible de comparer la copie au corrigé : aucun intitulé de question "
+            "n'a été trouvé dans la copie. Ajoutez les questions numérotées à la copie."
+        )
+
+    numeros_corrige = {question["numero"] for question in questions_corrige}
+    numeros_copie = set(questions_copie)
+    if numeros_corrige != numeros_copie:
+        manquants = sorted(numeros_corrige - numeros_copie)
+        supplementaires = sorted(numeros_copie - numeros_corrige)
+        details = []
+        if manquants:
+            details.append(f"questions absentes de la copie : {', '.join(map(str, manquants))}")
+        if supplementaires:
+            details.append(f"questions absentes du corrigé : {', '.join(map(str, supplementaires))}")
+        raise ValueError("Le corrigé et la copie ne contiennent pas les mêmes questions (" + "; ".join(details) + ").")
+
+    divergences = []
+    for question in questions_corrige:
+        numero = question["numero"]
+        jetons_corrige = _jetons_intitule(question["intitule"])
+        jetons_copie = _jetons_intitule(questions_copie[numero])
+        if not jetons_corrige or not jetons_copie:
+            divergences.append(numero)
+            continue
+
+        fenetre_copie = jetons_copie[:len(jetons_corrige)]
+        similarite = SequenceMatcher(None, jetons_corrige, fenetre_copie).ratio()
+        seuil = max(0.75, 1 - 1.5 / len(jetons_corrige))
+        if similarite < seuil:
+            divergences.append(numero)
+
+    if divergences:
+        liste = ", ".join(map(str, divergences))
+        raise ValueError(
+            f"Le corrigé et la copie semblent porter sur des questions différentes "
+            f"(question(s) {liste}). Vérifiez les deux documents avant de corriger."
+        )
+
+
+def _extraire_intitules_copie(copie_eleve: str) -> dict[int, str]:
+    blocs = {}
+    numero_courant = None
+    for ligne in copie_eleve.splitlines():
+        correspondance = DEBUT_QUESTION.match(ligne)
+        if correspondance:
+            numero_courant = int(correspondance.group(1))
+            blocs.setdefault(numero_courant, []).append(correspondance.group(2).strip())
+        elif numero_courant is not None:
+            blocs[numero_courant].append(ligne.strip())
+
+    if blocs:
+        intitules = {}
+        for numero, lignes in blocs.items():
+            texte = " ".join(ligne for ligne in lignes if ligne)
+            intitules[numero] = texte.split("?", 1)[0] + ("?" if "?" in texte else "")
+        return intitules
+
+    blocs_legacy = extraire_document_legacy(copie_eleve)
+    return {bloc["numero"]: bloc["intitule"] for bloc in blocs_legacy}
+
+
+def _jetons_intitule(intitule: str) -> list[str]:
+    intitule = _retirer_bareme(intitule)
+    intitule = re.sub(r"^\s*(?:question\s+)?\d+[.):]?\s*", "", intitule, flags=re.IGNORECASE)
+    return [_normaliser_jeton(jeton) for jeton in re.findall(r"\w+", intitule, re.UNICODE)]
 
 
 def _retirer_intitule_question(lignes: list[str], intitule: str) -> list[str]:
@@ -701,6 +781,8 @@ def corriger_copie(
         raise ValueError(
             "La copie de l'élève ne peut pas être vide."
         )
+
+    valider_correspondance_documents(corrige, copie_eleve)
 
     prompt = construire_prompt(
         corrige=corrige,

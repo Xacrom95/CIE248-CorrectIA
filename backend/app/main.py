@@ -8,6 +8,7 @@ from app.documents import (
     extraire_identite,
     extraire_texte,
 )
+from app.statistiques import enregistrer_note, lire_statistiques
 
 
 app = FastAPI(
@@ -65,6 +66,24 @@ class CorrectionRequest(BaseModel):
     )
 
 
+class PointsQuestion(BaseModel):
+    numero: int
+    intitule: str = Field(min_length=1, max_length=500)
+    points: float = Field(ge=0)
+    points_max: float = Field(gt=0)
+
+
+class NoteEvaluation(BaseModel):
+    classe: str = Field(min_length=1, max_length=100)
+    evaluation: str = Field(min_length=1, max_length=200)
+    date: str = Field(min_length=1, max_length=40)
+    nom: str = Field(min_length=1, max_length=100)
+    prenom: str = Field(min_length=1, max_length=100)
+    points: float = Field(ge=0)
+    points_max: float = Field(gt=0)
+    questions: list[PointsQuestion] = Field(min_length=1)
+
+
 @app.get("/")
 def accueil():
     return {
@@ -105,6 +124,28 @@ async def correction_fichiers(
         ) from erreur
 
     return generer_correction(texte_corrige, texte_copie)
+
+
+@app.post("/statistiques/notes")
+def sauvegarder_note(demande: NoteEvaluation):
+    try:
+        return enregistrer_note(demande.model_dump())
+    except (OSError, ValueError) as erreur:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Impossible d'enregistrer la statistique : {erreur}"
+        ) from erreur
+
+
+@app.get("/statistiques")
+def obtenir_statistiques():
+    try:
+        return lire_statistiques()
+    except (OSError, ValueError) as erreur:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Impossible de lire les statistiques : {erreur}"
+        ) from erreur
 
 
 def generer_correction(corrige: str, copie_eleve: str):

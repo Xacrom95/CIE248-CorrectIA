@@ -143,7 +143,13 @@ Pour la copie de l'élève, les questions peuvent être numérotées :
 Central Processing Unit.
 ```
 
-Le backend extrait les textes des documents afin d'éviter que le modèle n'invente les réponses affichées. Les formats PDF et image ne sont pas encore pris en charge par l'interface web actuelle.
+Le backend extrait les textes des documents afin d'éviter que le modèle n'invente les réponses affichées. Les PDF scannés sans couche de texte ne sont pas pris en charge.
+
+## Statistiques des classes
+
+Le bouton **Statistiques** permet de sélectionner une classe puis une évaluation. La page affiche, pour chaque question, le nombre de réponses ayant obtenu tous les points et un tableau des points par élève (`0`, `1` ou valeur partielle).
+
+Les données, avec les scores individuels par question, sont enregistrées dans `backend/data/evaluations.json` après validation de toutes les questions par l'enseignant. Le fichier est créé au premier enregistrement. Une validation ultérieure du même élève pour la même classe, évaluation et date met à jour sa ligne. Le chemin du fichier peut être personnalisé avec `CORRECTIA_STATISTIQUES_FILE`.
 
 ## API
 
@@ -155,6 +161,8 @@ Endpoints disponibles :
 | `GET` | `/health` | État de santé de l'API |
 | `POST` | `/correction` | Génération d'une correction |
 | `POST` | `/correction/fichiers` | Génération d'une correction à partir de fichiers `.txt`, `.pdf` ou `.docx` |
+| `POST` | `/statistiques/notes` | Enregistrement d'une correction validée, avec les points par question |
+| `GET` | `/statistiques` | Lecture des statistiques regroupées par classe et évaluation |
 
 Documentation interactive :
 
@@ -239,4 +247,4 @@ compose.yaml             # Préparation de l'orchestration Docker
 
 ## État du projet
 
-Le parcours local frontend, API FastAPI et Ollama est fonctionnel. Docker Compose, la base de données, l'authentification et la prise en charge des PDF/images dans l'interface web restent à finaliser.
+Le parcours local frontend, API FastAPI et Ollama est fonctionnel. L'interface accepte les fichiers `.txt`, `.pdf` textuels et `.docx`; les PDF scannés nécessitent encore un OCR. Docker Compose, la base de données et l'authentification restent à finaliser.

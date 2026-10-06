@@ -14,23 +14,26 @@
                     <h1>CorrectIA</h1>
                     <p>Assistant local de correction d'évaluations</p>
                 </div>
-                <button id="bouton-theme" class="bouton-theme" type="button" aria-label="Thème clair. Passer au mode sombre." title="Thème clair. Cliquer pour passer au mode sombre.">
-                    <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true">
-                        <circle cx="12" cy="12" r="4"></circle>
-                        <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"></path>
-                    </svg>
-                    <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M20.9 13.1A9 9 0 0 1 10.9 3.1 9 9 0 1 0 20.9 13.1Z"></path>
-                    </svg>
-                    <svg class="theme-icon theme-icon-system" viewBox="0 0 24 24" aria-hidden="true">
-                        <rect x="3" y="4" width="18" height="13" rx="2"></rect>
-                        <path d="M8 21h8m-4-4v4"></path>
-                    </svg>
-                </button>
+                <div class="actions-entete">
+                    <button id="bouton-statistiques" class="bouton-navigation" type="button">Statistiques</button>
+                    <button id="bouton-theme" class="bouton-theme" type="button" aria-label="Thème clair. Passer au mode sombre." title="Thème clair. Cliquer pour passer au mode sombre.">
+                        <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="12" cy="12" r="4"></circle>
+                            <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"></path>
+                        </svg>
+                        <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M20.9 13.1A9 9 0 0 1 10.9 3.1 9 9 0 1 0 20.9 13.1Z"></path>
+                        </svg>
+                        <svg class="theme-icon theme-icon-system" viewBox="0 0 24 24" aria-hidden="true">
+                            <rect x="3" y="4" width="18" height="13" rx="2"></rect>
+                            <path d="M8 21h8m-4-4v4"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
         </header>
 
-        <section class="formulaire" aria-labelledby="formulaire-title">
+        <section id="section-formulaire" class="formulaire" aria-labelledby="formulaire-title">
             <h2 id="formulaire-title">Préparer une correction</h2>
 
             <div class="champ-fichier">
@@ -86,6 +89,21 @@
                 </div>
             </div>
             <div id="contenu-resultat"></div>
+        </section>
+
+        <section id="section-statistiques" class="resultat section-statistiques cache" aria-labelledby="statistiques-title">
+            <div class="entete-statistiques">
+                <h2 id="statistiques-title">Statistiques des classes</h2>
+                <button id="bouton-retour-correction" class="bouton-secondaire" type="button">Retour à la correction</button>
+            </div>
+            <div id="filtres-statistiques" class="filtres-statistiques cache">
+                <label for="selecteur-classe">Classe</label>
+                <select id="selecteur-classe"></select>
+                <label for="selecteur-evaluation">Évaluation</label>
+                <select id="selecteur-evaluation"></select>
+            </div>
+            <div id="contenu-statistiques" aria-live="polite"></div>
+            <p id="erreur-statistiques" class="erreur cache" role="alert"></p>
         </section>
     </main>
 
