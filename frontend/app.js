@@ -24,26 +24,44 @@ let debutCorrection = null;
 let controleurCorrection = null;
 let correctionCourante = null;
 let correctionValidee = false;
+const preferenceThemeSysteme = window.matchMedia("(prefers-color-scheme: dark)");
 
 function appliquerTheme(theme) {
-    const nocturne = theme === "dark";
+    const themeChoisi = ["light", "dark", "system"].includes(theme)
+        ? theme
+        : "system";
+    const nocturne = themeChoisi === "dark" || (
+        themeChoisi === "system" && preferenceThemeSysteme.matches
+    );
     document.documentElement.dataset.theme = nocturne ? "dark" : "light";
-    boutonTheme.textContent = nocturne ? "Mode diurne" : "Mode nocturne";
-    boutonTheme.setAttribute("aria-label", nocturne ? "Activer le mode diurne" : "Activer le mode nocturne");
-    localStorage.setItem("correctia-theme", nocturne ? "dark" : "light");
+    const prochainTheme = { light: "dark", dark: "system", system: "light" }[themeChoisi];
+    const nomTheme = { light: "clair", dark: "sombre", system: "système" }[themeChoisi];
+    const nomProchainTheme = { light: "clair", dark: "sombre", system: "système" }[prochainTheme];
+    boutonTheme.dataset.theme = themeChoisi;
+    boutonTheme.setAttribute("aria-label", `Thème ${nomTheme}. Passer au mode ${nomProchainTheme}.`);
+    boutonTheme.title = `Thème ${nomTheme}. Cliquer pour passer au mode ${nomProchainTheme}.`;
+    localStorage.setItem("correctia-theme", themeChoisi);
 }
 
-appliquerTheme(localStorage.getItem("correctia-theme") || "light");
+appliquerTheme(localStorage.getItem("correctia-theme") || "system");
+preferenceThemeSysteme.addEventListener("change", () => {
+    if (boutonTheme.dataset.theme === "system") {
+        appliquerTheme("system");
+    }
+});
 
 champCorrige.addEventListener("change", () => afficherNomFichier(champCorrige, nomCorrige));
 champCopie.addEventListener("change", () => afficherNomFichier(champCopie, nomCopie));
 boutonCorriger.addEventListener("click", corrigerCopie);
 boutonAnnuler.addEventListener("click", () => controleurCorrection?.abort());
 boutonValiderCorrection.addEventListener("click", validerCorrection);
-boutonPdf.addEventListener("click", () => window.print());
+boutonPdf.addEventListener("click", exporterPdf);
 boutonReediter.addEventListener("click", autoriserModification);
 boutonTheme.addEventListener("click", () => {
-    appliquerTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+    const prochainTheme = { light: "dark", dark: "system", system: "light" }[
+        boutonTheme.dataset.theme
+    ];
+    appliquerTheme(prochainTheme);
 });
 boutonNouvelleCorrection.addEventListener("click", reinitialiserInterface);
 contenuResultat.addEventListener("input", mettreAJourCorrection);
@@ -133,7 +151,7 @@ async function corrigerCopie() {
             throw new Error(detail || `Erreur HTTP ${reponse.status}`);
         }
 
-        afficherCorrection(donnees);
+        afficherCorrection(donnees, copieEleve);
     } catch (erreur) {
         console.error(erreur);
 
@@ -209,8 +227,9 @@ function reinitialiserInterface() {
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function afficherCorrection(correction) {
+function afficherCorrection(correction, texteCopieEleve = "") {
     correctionCourante = structuredClone(correction);
+    const identiteEleve = extraireIdentite(texteCopieEleve);
     const questions = Array.isArray(correctionCourante.questions)
         ? correctionCourante.questions
         : [];
@@ -303,21 +322,21 @@ function afficherCorrection(correction) {
         <div class="identite-eleve">
             <label class="champ-identite" for="nom-eleve">
                 Nom
-                <input id="nom-eleve" type="text" autocomplete="family-name" data-editable="true">
+                <input id="nom-eleve" type="text" autocomplete="family-name" data-editable="true" value="${echapperAttribut(identiteEleve.nom)}">
             </label>
             <label class="champ-identite" for="prenom-eleve">
                 Prénom
-                <input id="prenom-eleve" type="text" autocomplete="given-name" data-editable="true">
+                <input id="prenom-eleve" type="text" autocomplete="given-name" data-editable="true" value="${echapperAttribut(identiteEleve.prenom)}">
             </label>
         </div>
 
+        <p class="note-sur-six">
+            Note : <strong id="note-sur-six-valeur">${calculerNoteSurSix(correctionCourante.note_totale_proposee, correctionCourante.note_totale_maximale)}</strong> / 6
+        </p>
         <p class="note-totale">
             Points attribués :
             <span id="note-totale-valeur">${echapperHtml(correctionCourante.note_totale_proposee)}</span> /
             ${echapperHtml(correctionCourante.note_totale_maximale)}
-        </p>
-        <p class="note-sur-six">
-            Note sur 6 : <strong id="note-sur-six-valeur">${calculerNoteSurSix(correctionCourante.note_totale_proposee, correctionCourante.note_totale_maximale)}</strong> / 6
         </p>
 
         ${htmlQuestions}
@@ -489,6 +508,40 @@ function calculerNoteSurSix(nbPoints, nbTotaux) {
     return ((points / total) * 5 + 1).toLocaleString("fr-FR", {
         maximumFractionDigits: 2
     });
+}
+
+function exporterPdf() {
+    const titreOriginal = document.title;
+    const nomCorrigePdf = champCorrige.files[0]?.name.replace(/\.txt$/i, "") || "corrige";
+    const nomEleve = document.getElementById("nom-eleve")?.value || "nom";
+    const prenomEleve = document.getElementById("prenom-eleve")?.value || "prenom";
+    const titrePdf = [nomCorrigePdf, nomEleve, prenomEleve]
+        .map(nettoyerSegmentNomFichier)
+        .join("_");
+
+    document.title = titrePdf;
+    window.addEventListener("afterprint", () => {
+        document.title = titreOriginal;
+    }, { once: true });
+    window.print();
+}
+
+function nettoyerSegmentNomFichier(segment) {
+    return String(segment ?? "")
+        .trim()
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[<>:"/\\|?*\x00-\x1f]/g, "_")
+        .replace(/\s+/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_+|_+$/g, "") || "sans_nom";
+}
+
+function extraireIdentite(texte) {
+    const nom = String(texte).match(/^\s*Nom\s*[:：]\s*(.*?)\s*$/im)?.[1] || "";
+    const prenom = String(texte).match(/^\s*Pr[ée]nom\s*[:：]\s*(.*?)\s*$/im)?.[1] || "";
+
+    return { nom, prenom };
 }
 
 function echapperHtml(texte) {
