@@ -10,8 +10,8 @@ CorrectIA utilise trois services locaux :
 Navigateur → Frontend :8080 → API FastAPI :8000 → Ollama :11434
 ```
 
-- Le frontend permet de sélectionner le corrigé et la copie au format `.txt`.
-- FastAPI reçoit le contenu des deux fichiers et orchestre la correction.
+- Le frontend permet de sélectionner le corrigé et la copie au format `.txt`, `.pdf` ou `.docx`.
+- FastAPI extrait le texte des fichiers, puis orchestre la correction.
 - Ollama analyse les réponses avec le modèle local `llama3.1:8b`.
 - Le backend récupère les textes exacts dans les documents et utilise le modèle pour attribuer les points et rédiger l'analyse.
 
@@ -104,8 +104,8 @@ Le frontend est servi par le serveur HTTP Python de développement. Il n'est pas
 
 ## Utilisation
 
-1. Sélectionnez un fichier `.txt` contenant le corrigé complet et ses barèmes.
-2. Sélectionnez un fichier `.txt` contenant la copie de l'élève.
+1. Sélectionnez un fichier `.txt`, `.pdf` ou `.docx` contenant le corrigé complet et ses barèmes.
+2. Sélectionnez un fichier `.txt`, `.pdf` ou `.docx` contenant la copie de l'élève.
 3. Cliquez sur **Corriger la copie**.
 4. Consultez la note, les réponses comparées, l'analyse détaillée et les points à améliorer.
 
@@ -121,6 +121,8 @@ Le frontend affiche :
 Pendant l'analyse, le temps écoulé est affiché. Le bouton **Annuler la correction** permet d'interrompre l'attente côté navigateur. Le calcul déjà lancé par Ollama peut toutefois continuer côté serveur.
 
 ## Format des fichiers
+
+Les fichiers `.txt`, `.pdf` et `.docx` contenant du texte sont acceptés (10 Mo maximum par fichier). Les tableaux de documents Word sont également lus. Un PDF scanné sans couche de texte ne peut pas être extrait et nécessite un traitement OCR séparé.
 
 Le format recommandé est une question par bloc, suivie de sa réponse :
 
@@ -152,6 +154,7 @@ Endpoints disponibles :
 | `GET` | `/` | Informations sur l'application |
 | `GET` | `/health` | État de santé de l'API |
 | `POST` | `/correction` | Génération d'une correction |
+| `POST` | `/correction/fichiers` | Génération d'une correction à partir de fichiers `.txt`, `.pdf` ou `.docx` |
 
 Documentation interactive :
 
