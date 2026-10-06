@@ -247,4 +247,4 @@ compose.yaml             # Préparation de l'orchestration Docker
 
 ## État du projet
 
-Le parcours local frontend, API FastAPI et Ollama est fonctionnel. Docker Compose, la base de données, l'authentification et la prise en charge des PDF/images dans l'interface web restent à finaliser.
+Le parcours local frontend, API FastAPI et Ollama est fonctionnel. L'interface accepte les fichiers `.txt`, `.pdf` textuels et `.docx`; les PDF scannés nécessitent encore un OCR. Docker Compose, la base de données et l'authentification restent à finaliser.
