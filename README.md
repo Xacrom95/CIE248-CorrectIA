@@ -41,7 +41,7 @@ Depuis la racine du dépôt :
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install -r .\backend\requirements_ollama.txt fastapi uvicorn
+python -m pip install -r .\backend\requirements_ollama.txt
 ```
 
 Si l'activation PowerShell est bloquée, vous pouvez utiliser directement `..\.venv\Scripts\python.exe` dans les commandes des étapes suivantes sans activer l'environnement.
@@ -61,7 +61,38 @@ ollama pull llama3.2:3b
 $env:OLLAMA_MODEL = "llama3.2:3b"
 ```
 
-Définissez `OLLAMA_MODEL` dans le terminal qui démarre FastAPI, avant de lancer Uvicorn. `OLLAMA_URL` peut aussi être défini si Ollama n'écoute pas sur `http://localhost:11434`.
+## Démarrage avec Docker Compose
+
+Cette méthode nécessite Docker avec Docker Compose ; elle n'exige pas
+d'installation locale de Python ni d'Ollama.
+
+Docker Compose lance le frontend, l'API FastAPI et Ollama. Au premier démarrage,
+Compose télécharge également le modèle configuré (par défaut `llama3.1:8b`),
+ce qui peut prendre du temps et plusieurs gigaoctets d'espace disque.
+
+Depuis la racine du dépôt :
+
+```bash
+docker compose up --build
+```
+
+L'interface est disponible sur http://localhost:8080 et la documentation de
+l'API sur http://localhost:8000/docs. Les ports sont publiés uniquement sur
+l'interface locale de la machine. Le modèle Ollama reste stocké dans le volume
+Docker `ollama-data` entre les redémarrages.
+
+Pour arrêter les services, utilisez `Ctrl+C`, puis :
+
+```bash
+docker compose down
+```
+
+Pour choisir un autre modèle, définissez `OLLAMA_MODEL` avant le démarrage, par
+exemple :
+
+```bash
+OLLAMA_MODEL=llama3.2:3b docker compose up --build
+```
 
 ## Démarrage
 
