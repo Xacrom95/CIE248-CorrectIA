@@ -14,8 +14,18 @@
                     <h1>CorrectIA</h1>
                     <p>Assistant local de correction d'évaluations</p>
                 </div>
-                <button id="bouton-theme" class="bouton-theme" type="button">
-                    Mode nocturne
+                <button id="bouton-theme" class="bouton-theme" type="button" aria-label="Thème clair. Passer au mode sombre." title="Thème clair. Cliquer pour passer au mode sombre.">
+                    <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"></path>
+                    </svg>
+                    <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M20.9 13.1A9 9 0 0 1 10.9 3.1 9 9 0 1 0 20.9 13.1Z"></path>
+                    </svg>
+                    <svg class="theme-icon theme-icon-system" viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="3" y="4" width="18" height="13" rx="2"></rect>
+                        <path d="M8 21h8m-4-4v4"></path>
+                    </svg>
                 </button>
             </div>
         </header>
@@ -56,24 +66,26 @@
 
         <section id="resultat" class="resultat cache" aria-live="polite">
             <h2>Proposition de correction</h2>
+            <div class="barre-actions-resultat">
+                <div class="zone-validation">
+                    <button id="bouton-valider-correction" type="button" disabled>
+                        Valider la correction
+                    </button>
+                    <p id="statut-validation" role="status" aria-live="polite"></p>
+                </div>
+                <div class="actions-resultat">
+                    <button id="bouton-pdf" type="button" disabled>
+                        Exporter en PDF
+                    </button>
+                    <button id="bouton-reediter" type="button" class="bouton-secondaire cache">
+                        Modifier la correction
+                    </button>
+                    <button id="bouton-nouvelle-correction" type="button" class="bouton-secondaire">
+                        Nouvelle correction
+                    </button>
+                </div>
+            </div>
             <div id="contenu-resultat"></div>
-            <div class="zone-validation">
-                <button id="bouton-valider-correction" type="button" disabled>
-                    Valider la correction
-                </button>
-                <p id="statut-validation" role="status" aria-live="polite"></p>
-            </div>
-            <div class="actions-resultat">
-                <button id="bouton-pdf" type="button" disabled>
-                    Exporter en PDF
-                </button>
-                <button id="bouton-reediter" type="button" class="bouton-secondaire cache">
-                    Modifier la correction
-                </button>
-                <button id="bouton-nouvelle-correction" type="button" class="bouton-secondaire">
-                    Nouvelle correction
-                </button>
-            </div>
         </section>
     </main>
 
