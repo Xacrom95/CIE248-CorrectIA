@@ -1,0 +1,5 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pytesseract>=0.3.13
+Pillow>=10.0.0
+pypdf>=5.0.0
