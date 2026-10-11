@@ -1,6 +1,5 @@
-const API_BASE_URL = `${window.location.protocol}//${window.location.host}`;
-const API_URL = `${API_BASE_URL}/correction/fichiers`;
-const API_STATISTIQUES_URL = `${API_BASE_URL}/statistiques`;
+const API_URL = "https://involved-radical-olive-correlation.trycloudflare.com/correction/fichiers";
+const API_STATISTIQUES_URL = "https://involved-radical-olive-correlation.trycloudflare.com/statistiques";
 const TAILLE_MAXIMALE = 10 * 1024 * 1024;
 
 const champCorrige = document.getElementById("corrige");
