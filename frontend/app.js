@@ -1,5 +1,5 @@
-const API_URL = "https://fields-coal-allowing-need.trycloudflare.com/correction/fichiers";
-const API_STATISTIQUES_URL = "https://fields-coal-allowing-need.trycloudflare.com/statistiques";
+const API_URL = "https://eligible-squiggle-basin.ngrok-free.dev/correction/fichiers";
+const API_STATISTIQUES_URL = "https://eligible-squiggle-basin.ngrok-free.dev/statistiques";
 const TAILLE_MAXIMALE = 10 * 1024 * 1024;
 
 const champCorrige = document.getElementById("corrige");
