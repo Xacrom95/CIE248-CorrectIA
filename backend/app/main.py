@@ -46,7 +46,7 @@ app.add_middleware(
     allow_origins=[
         "http://127.0.0.1:8080",
         "http://localhost:8080",
-        "https://puzzles-purposes-discussing-techrepublic.trycloudflare.com"
+        "https://eligible-squiggle-basin.ngrok-free.dev"
     ],
     allow_credentials=False,
     allow_methods=["GET", "POST", "DELETE"],
