@@ -1,5 +1,6 @@
-const API_URL = "http://127.0.0.1:8000/correction/fichiers";
-const API_STATISTIQUES_URL = "http://127.0.0.1:8000/statistiques";
+const API_BASE_URL = `${window.location.protocol}//${window.location.host}`;
+const API_URL = `${API_BASE_URL}/correction/fichiers`;
+const API_STATISTIQUES_URL = `${API_BASE_URL}/statistiques`;
 const TAILLE_MAXIMALE = 10 * 1024 * 1024;
 
 const champCorrige = document.getElementById("corrige");
