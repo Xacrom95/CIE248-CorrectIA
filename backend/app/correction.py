@@ -419,7 +419,56 @@ def construire_prompt(
     copie_eleve: str
 ) -> str:
     """
+    Construit le prompt envoyé à Llama.
+    Le prompt est réduit pour les petits modèles (< 7B).
+    """
+
+    nombre_questions = len(extraire_document(corrige, "Réponse :"))
+    
+    # Prompt court pour llama3.2:1b et llama3.2:3b
+    if OLLAMA_MODEL in ["llama3.2:1b", "llama3.2:3b"]:
+        return f"""Tu assistes un enseignant pour corriger une évaluation.
+
+CORRIGÉ :
+{corrige}
+
+COPIE DE L'ÉLÈVE :
+{copie_eleve}
+
+Évalue chaque réponse rapidement et retourne un JSON valide :
+
+{{
+  "questions": [
+    {{
+      "numero": 1,
+      "intitule": "Question exacte du corrigé",
+      "reponse_eleve": "Réponse exacte de l'élève",
+      "reponse_attendue": "Réponse attendue du corrigé",
+      "note_proposee": 0,
+      "note_maximale": 1,
+      "elements_corrects": ["Éléments corrects"],
+      "elements_manquants_ou_incorrects": ["Éléments manquants"],
+      "analyse_detaillee": "Analyse courte",
+      "commentaire": "Commentaire court",
+      "verification_humaine_recommandee": false
+    }}
+  ],
+  "note_totale_proposee": 0,
+  "note_totale_maximale": 0,
+  "commentaire_global": "Résumé",
+  "verification_humaine_recommandee": false
+}}
+"""
+
+    # Prompt complet pour llama3.1:8b et les plus gros modèles
+    return f"""
+Tu assistes un enseignant dans la correction d'une évaluation complète.
+...
+[Le prompt original long]
+"""
+    """
     Construit le prompt envoyé à Llama 3.1.
+    Le prompt est réduit pour les plus petits modèles
 
     Le corrigé doit contenir :
     - les questions ;
