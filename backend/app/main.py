@@ -1,6 +1,10 @@
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+import signal
+import sys
+
+signal.alarm(600)
 
 from app.correction import corriger_copie
 from app.documents import (
