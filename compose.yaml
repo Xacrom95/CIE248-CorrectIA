@@ -1,4 +1,3 @@
-
 services:
   ollama:
     image: ollama/ollama:latest
@@ -14,10 +13,18 @@ services:
 
   ollama-model:
     image: ollama/ollama:latest
-    entrypoint: ["ollama"]
-    command: ["pull", "${OLLAMA_MODEL:-llama3.1:8b}"]
     environment:
       OLLAMA_HOST: http://ollama:11434
+      MODEL_NAME: ${OLLAMA_MODEL:-llama3.1:8b}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if ollama show "$${MODEL_NAME}" >/dev/null 2>&1; then
+          echo "Le modèle $${MODEL_NAME} est déjà présent dans le volume Docker."
+        else
+          echo "Téléchargement du modèle $${MODEL_NAME}..."
+          ollama pull "$${MODEL_NAME}"
+        fi
     volumes:
       - ollama-data:/root/.ollama
     depends_on:
