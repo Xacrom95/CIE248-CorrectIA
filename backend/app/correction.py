@@ -5,6 +5,8 @@ import unicodedata
 from difflib import SequenceMatcher
 import urllib.error
 import urllib.request
+import logging
+import time
 
 
 OLLAMA_URL = os.getenv(
@@ -16,6 +18,9 @@ OLLAMA_MODEL = os.getenv(
     "OLLAMA_MODEL",
     "llama3.1:8b"
 )
+
+logger = logging.getLogger("correctia")
+
 DEBUT_QUESTION = re.compile(r"^\s*(?:question\s+)?(\d+)[.):]\s+(.*)$", re.IGNORECASE)
 
 
@@ -530,14 +535,19 @@ def appeler_ollama(
     """
 
     donnees = {
-        "model": modele,
-        "prompt": prompt,
-        "stream": False,
-        "format": "json",
-        "options": {
-            "temperature": 0
-        }
+    "model": modele,
+    "prompt": prompt,
+    "stream": False,
+    "format": "json",
+
+    # Conserve le modèle chargé en mémoire pendant 30 minutes.
+    # Les corrections suivantes devraient démarrer plus rapidement.
+    "keep_alive": "30m",
+
+    "options": {
+        "temperature": 0
     }
+}
 
     requete = urllib.request.Request(
         url=f"{ollama_url.rstrip('/')}/api/generate",
@@ -548,10 +558,18 @@ def appeler_ollama(
         method="POST"
     )
 
+    debut_appel = time.monotonic()
+
+    logger.info(
+        "Envoi du prompt à Ollama : modèle=%s, taille=%d caractères",
+        modele,
+        len(prompt)
+    )
+
     try:
         with urllib.request.urlopen(
             requete,
-            timeout=300
+            timeout=600
         ) as reponse:
             resultat_ollama = json.loads(
                 reponse.read().decode("utf-8")
@@ -574,6 +592,24 @@ def appeler_ollama(
             "Vérifie que le service Ollama est lancé."
         ) from erreur
 
+    duree_appel = time.monotonic() - debut_appel
+
+    logger.info(
+        "Réponse Ollama reçue en %.2f secondes",
+        duree_appel
+    )
+
+    logger.info(
+        (
+            "Mesures Ollama : total_duration=%s, "
+            "load_duration=%s, prompt_eval_count=%s, "
+            "eval_count=%s"
+        ),
+        resultat_ollama.get("total_duration"),
+        resultat_ollama.get("load_duration"),
+        resultat_ollama.get("prompt_eval_count"),
+        resultat_ollama.get("eval_count")
+    )
     reponse_modele = resultat_ollama.get("response")
 
     if not reponse_modele:
