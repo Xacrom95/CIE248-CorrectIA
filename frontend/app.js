@@ -1,5 +1,5 @@
-const API_URL = "https://eligible-squiggle-basin.ngrok-free.dev/correction/fichiers";
-const API_STATISTIQUES_URL = "https://eligible-squiggle-basin.ngrok-free.dev/statistiques";
+const API_URL = "http://127.0.0.1:8000/correction/fichiers";
+const API_STATISTIQUES_URL = "http://127.0.0.1:8000/statistiques";
 const TAILLE_MAXIMALE = 10 * 1024 * 1024;
 
 const champCorrige = document.getElementById("corrige");
