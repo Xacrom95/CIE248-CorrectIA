@@ -1,10 +1,6 @@
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-import signal
-import sys
-
-signal.alarm(600)
 
 from app.correction import corriger_copie
 from app.documents import (
@@ -14,7 +10,6 @@ from app.documents import (
 )
 from app.statistiques import enregistrer_note, lire_statistiques, supprimer_note
 
-
 app = FastAPI(
     title="CorrectIA API",
     description=(
@@ -22,35 +17,20 @@ app = FastAPI(
         "Toutes les corrections doivent être validées "
         "par un enseignant."
     ),
-    version="0.3.0"
+    version="0.3.0",
 )
 
-
-# Configuration CORS adaptée au prototype local.
-#
-# Le frontend fonctionne actuellement sur le port 8080
-# et FastAPI sur le port 8000.
-#
-# Dans une version de production, il faudra remplacer "*"
-# par l'adresse exacte du frontend.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"]
-)
-
+# Un seul middleware CORS. Les origines existantes sont conservées.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://127.0.0.1:8080",
         "http://localhost:8080",
-        "https://eligible-squiggle-basin.ngrok-free.dev"
+        "https://eligible-squiggle-basin.ngrok-free.dev",
     ],
     allow_credentials=False,
     allow_methods=["GET", "POST", "DELETE"],
-    allow_headers=["Content-Type"]
+    allow_headers=["Content-Type"],
 )
 
 
@@ -60,14 +40,11 @@ class CorrectionRequest(BaseModel):
         description=(
             "Corrigé complet contenant les questions, "
             "les réponses attendues et les barèmes"
-        )
+        ),
     )
-
     copie_eleve: str = Field(
         min_length=1,
-        description=(
-            "Copie complète contenant les réponses de l'élève"
-        )
+        description="Copie complète contenant les réponses de l'élève",
     )
 
 
@@ -94,21 +71,17 @@ def accueil():
     return {
         "application": "CorrectIA",
         "status": "opérationnel",
-        "version": "0.3.0"
+        "version": "0.3.0",
     }
 
 
 @app.get("/health")
 def health():
-    return {
-        "status": "ok"
-    }
+    return {"status": "ok"}
 
 
 @app.post("/correction")
-def correction(
-    demande: CorrectionRequest
-):
+def correction(demande: CorrectionRequest):
     return generer_correction(demande.corrige, demande.copie_eleve)
 
 
@@ -123,10 +96,7 @@ async def correction_fichiers(
         texte_corrige = extraire_texte(corrige.filename or "", contenu_corrige)
         texte_copie = extraire_texte(copie_eleve.filename or "", contenu_copie)
     except ValueError as erreur:
-        raise HTTPException(
-            status_code=422,
-            detail=str(erreur)
-        ) from erreur
+        raise HTTPException(status_code=422, detail=str(erreur)) from erreur
 
     return generer_correction(texte_corrige, texte_copie)
 
@@ -138,7 +108,7 @@ def sauvegarder_note(demande: NoteEvaluation):
     except (OSError, ValueError) as erreur:
         raise HTTPException(
             status_code=500,
-            detail=f"Impossible d'enregistrer la statistique : {erreur}"
+            detail=f"Impossible d'enregistrer la statistique : {erreur}",
         ) from erreur
 
 
@@ -149,7 +119,7 @@ def obtenir_statistiques():
     except (OSError, ValueError) as erreur:
         raise HTTPException(
             status_code=500,
-            detail=f"Impossible de lire les statistiques : {erreur}"
+            detail=f"Impossible de lire les statistiques : {erreur}",
         ) from erreur
 
 
@@ -162,17 +132,19 @@ def supprimer_resultat_eleve(
     prenom: str,
 ):
     try:
-        supprime = supprimer_note({
-            "classe": classe,
-            "evaluation": evaluation,
-            "date": date,
-            "nom": nom,
-            "prenom": prenom,
-        })
+        supprime = supprimer_note(
+            {
+                "classe": classe,
+                "evaluation": evaluation,
+                "date": date,
+                "nom": nom,
+                "prenom": prenom,
+            }
+        )
     except (OSError, ValueError) as erreur:
         raise HTTPException(
             status_code=500,
-            detail=f"Impossible de supprimer le résultat : {erreur}"
+            detail=f"Impossible de supprimer le résultat : {erreur}",
         ) from erreur
 
     if not supprime:
@@ -183,30 +155,18 @@ def supprimer_resultat_eleve(
 
 def generer_correction(corrige: str, copie_eleve: str):
     try:
-        resultat = corriger_copie(
-            corrige=corrige,
-            copie_eleve=copie_eleve
-        )
+        resultat = corriger_copie(corrige=corrige, copie_eleve=copie_eleve)
         resultat["identite_eleve"] = extraire_identite(copie_eleve)
         return resultat
-
     except ConnectionError as erreur:
-        raise HTTPException(
-            status_code=503,
-            detail=str(erreur)
-        ) from erreur
-
+        raise HTTPException(status_code=503, detail=str(erreur)) from erreur
     except ValueError as erreur:
-        raise HTTPException(
-            status_code=422,
-            detail=str(erreur)
-        ) from erreur
-
+        raise HTTPException(status_code=422, detail=str(erreur)) from erreur
     except Exception as erreur:
         raise HTTPException(
             status_code=500,
             detail=(
                 "Une erreur interne est survenue "
                 f"pendant la correction : {erreur}"
-            )
+            ),
         ) from erreur
